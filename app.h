@@ -21,11 +21,11 @@ public:
     void write(const QByteArray &);
 
 signals:
-    void started();
-    void stopped(int, int);
-    void stdOut(const QByteArray &);
-    void stdErr(const QByteArray &);
-    void debugging(quint16);
+    void started(pid_t);
+    void stopped(pid_t, int, int);
+    void stdOut(pid_t, const QByteArray &);
+    void stdErr(pid_t, const QByteArray &);
+    void debugging(pid_t, quint16);
     void error(const QString &);
 
 private slots:
@@ -38,5 +38,6 @@ private slots:
 private:
     QProcess *mProcess;
     QProcessEnvironment *mEnv;
+    pid_t mPid;
 };
 #endif // APP_H

@@ -8,6 +8,7 @@ App::App(QObject *parent)
     : QObject(parent)
     , mProcess(new QProcess(this))
     , mEnv(new QProcessEnvironment(QProcessEnvironment::systemEnvironment()))
+    , mPid(0)
 {
     mProcess->setProcessChannelMode(QProcess::SeparateChannels);
 
@@ -25,7 +26,7 @@ App::~App()
 
 void App::start(const QString &binary, const QStringList &args)
 {
-    stop(); 
+    stop();
     mProcess->setProcessEnvironment(*mEnv);
     mProcess->start(binary, args);
 }
@@ -91,26 +92,27 @@ void App::processFinished(int exitCode, QProcess::ExitStatus exitStatus)
     } else {
         qDebug() << "Process crashed";
     }
-    emit stopped(exitStatus, exitCode);
+    emit stopped(mPid, exitStatus, exitCode);
 }
 
 void App::processStderr()
 {
     QByteArray out = mProcess->readAllStandardError();
     if (!out.isEmpty())
-        emit stdErr(out);
+        emit stdErr(mPid, out);
 }
 
 void App::processStdout()
 {
     QByteArray out = mProcess->readAllStandardOutput();
     if (!out.isEmpty())
-        emit stdOut(out);
+        emit stdOut(mPid, out);
 }
 
 void App::processStarted()
 {
-    emit started();
+    mPid = mProcess->pid();
+    emit started(mPid);
     qDebug() << "Process started";
 }
 

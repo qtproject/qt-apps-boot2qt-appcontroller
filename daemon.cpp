@@ -22,11 +22,11 @@ Daemon::Daemon(QObject *parent)
     connect(mServer, SIGNAL(newConnection()), this, SLOT(newConnection()));
     connect(mProtocol, SIGNAL(commandReceived(const QStringList &)), this, SLOT(printCommand(const QStringList &)));
     connect(mProtocol, SIGNAL(commandReceived(const QStringList &)), this, SLOT(handleCommands(const QStringList &)));
-    connect(mApp, SIGNAL(started()), this, SLOT(appStarted()));
-    connect(mApp, SIGNAL(stopped(int,int)), this, SLOT(appStopped(int,int)));
-    connect(mApp, SIGNAL(stdOut(const QByteArray&)), this, SLOT(appStdout(const QByteArray&)));
-    connect(mApp, SIGNAL(stdErr(const QByteArray&)), this, SLOT(appStderr(const QByteArray&)));
-    connect(mApp, SIGNAL(debugging(quint16)), this, SLOT(appDebugging(quint16)));
+    connect(mApp, SIGNAL(started(pid_t)), this, SLOT(appStarted(pid_t)));
+    connect(mApp, SIGNAL(stopped(pid_t,int,int)), this, SLOT(appStopped(pid_t,int,int)));
+    connect(mApp, SIGNAL(stdOut(pid_t,const QByteArray&)), this, SLOT(appStdout(pid_t,const QByteArray&)));
+    connect(mApp, SIGNAL(stdErr(pid_t,const QByteArray&)), this, SLOT(appStderr(pid_t,const QByteArray&)));
+    connect(mApp, SIGNAL(debugging(pid_t,quint16)), this, SLOT(appDebugging(pid_t,quint16)));
     connect(mApp, SIGNAL(error(const QString&)), this, SLOT(appError(const QString&)));
 
     if (!defaultApp.isEmpty())
@@ -103,48 +103,53 @@ void Daemon::handleCommands(const QStringList &list)
 
 }
 
-void Daemon::appStarted()
+void Daemon::appStarted(pid_t pid)
 {
     if (!mClient)
         return;
     QStringList l("started");
+    l += QString::number(pid);
     mClient->write(mProtocol->sendToClient(l).toLocal8Bit());
 }
 
-void Daemon::appStopped(int exitStatus, int exitCode)
+void Daemon::appStopped(pid_t pid, int exitStatus, int exitCode)
 {
     if (!mClient)
         return;
     QStringList l("stopped");
+    l += QString::number(pid);
     l += QString::number(exitStatus);
     l += QString::number(exitCode);
 
     mClient->write(mProtocol->sendToClient(l).toLocal8Bit());
 }
 
-void Daemon::appStdout(const QByteArray &data)
+void Daemon::appStdout(pid_t pid, const QByteArray &data)
 {
     if (!mClient)
         return;
     QStringList l("stdout");
+    l += QString::number(pid);
     l += QString::fromLocal8Bit(data);
     mClient->write(mProtocol->sendToClient(l).toLocal8Bit());
 }
 
-void Daemon::appStderr(const QByteArray &data)
+void Daemon::appStderr(pid_t pid, const QByteArray &data)
 {
     if (!mClient)
         return;
     QStringList l("stderr");
+    l += QString::number(pid);
     l += data;
     mClient->write(mProtocol->sendToClient(l).toLocal8Bit());
 }
 
-void Daemon::appDebugging(quint16 port)
+void Daemon::appDebugging(pid_t pid, quint16 port)
 {
     if (!mClient)
         return;
     QStringList l("debugging");
+    l += QString::number(pid);
     l += QString::number(port);
     mClient->write(mProtocol->sendToClient(l).toLocal8Bit());
 }
@@ -162,8 +167,10 @@ void Daemon::loadDefaults()
 {
     QFile f("/system/bin/appdaemon.conf");
 
-    if (!f.open(QFile::ReadOnly))
-        qFatal("Could not read config file.");
+    if (!f.open(QFile::ReadOnly)) {
+        qWarning("Could not read config file.");
+        return;
+    }
 
     while (!f.atEnd()) {
         QString line = f.readLine();

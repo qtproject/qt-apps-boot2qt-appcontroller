@@ -23,11 +23,11 @@ private slots:
     void clientRead();
     void handleCommands(const QStringList &);
 
-    void appStarted();
-    void appStopped(int, int);
-    void appStdout(const QByteArray &);
-    void appStderr(const QByteArray &);
-    void appDebugging(quint16);
+    void appStarted(pid_t);
+    void appStopped(pid_t, int, int);
+    void appStdout(pid_t, const QByteArray &);
+    void appStderr(pid_t, const QByteArray &);
+    void appDebugging(pid_t, quint16);
     void appError(const QString &);
 
 private:

@@ -61,24 +61,24 @@ Notifications
 
 Notifications are sent to QtCreator.
 
-@started@\n
+@started:<PID>@\n
 
 An app was started successfully.
 
-@stopped:<exitstatus>:<exitcode>@\n
+@stopped:<PID>:<exitstatus>:<exitcode>@\n
 
 An app was/had stopped.
 exitstatus: 0=NormalExit; 1=CrashExit
 exitcode: Exitcode in case the program exits normally. Otherwise undefined.
 
-@stdout:<text>@\n
+@stdout:<PID>:<text>@\n
 
 A line of the apps stdout
 
-@stderr:<text>@\n
+@stderr:<PID>:<text>@\n
 A line of the apps stderr
 
-@debugging:<port>@\n
+@debugging:<PID>:<port>@\n
 
 A debugger started on port.
 
