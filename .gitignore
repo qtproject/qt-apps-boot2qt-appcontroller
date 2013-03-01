@@ -1,0 +1,4 @@
+appdaemon
+Makefile
+*.o
+moc_*.cpp

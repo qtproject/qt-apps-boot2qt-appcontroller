@@ -1,0 +1,87 @@
+General
+-------
+
+A transfer packet starts with '@' and ends with '@\n'.
+
+    @sample text@\n
+
+Fields are separated by ':'.
+
+    @sample text:field1:field2@\n
+
+Fields must not be empty.
+
+To include the characters ':' and '@' in texts these have to be escaped with an additional same character.
+':' becomes "::" and '@' becomes "@@".
+
+    @sample text:some::value:some@@value@\n
+
+Will be parsed to
+
+    sample text
+    some:value
+    some@value
+
+Packets must not be handled until they are complete.
+
+Commands
+---------
+
+Commands can be issued by QtCreator.
+
+@start:<binary>[:<arg>]@\n
+
+Starts the given process. All running apps will be stopped.
+The binary has to be an absolute path.
+Arguments have to be provided as fields. Multiple fields are possible.
+
+@stop@\n
+
+Kill the running app.
+
+@debug[:<binary>][:<arg>]@\n
+
+Starts debugging. If no binary given it attaches to the running app.
+Otherwise it starts a new app as described in '@start'.
+
+@stdin:<text>@\n
+
+A line to be sent to the apps stdin.
+
+@env:<key>[:<value>]@\n
+
+Set an environment variable.
+
+<key>=<value>
+
+If value is missing <key> will be removed from environment.
+
+Notifications
+-------------
+
+Notifications are sent to QtCreator.
+
+@started@\n
+
+An app was started successfully.
+
+@stopped:<exitstatus>:<exitcode>@\n
+
+An app was/had stopped.
+exitstatus: 0=NormalExit; 1=CrashExit
+exitcode: Exitcode in case the program exits normally. Otherwise undefined.
+
+@stdout:<text>@\n
+
+A line of the apps stdout
+
+@stderr:<text>@\n
+A line of the apps stderr
+
+@debugging:<port>@\n
+
+A debugger started on port.
+
+@error:<text>@\n
+
+Last command failed.
