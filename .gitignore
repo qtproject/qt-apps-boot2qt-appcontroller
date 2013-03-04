@@ -1,4 +1,4 @@
-appdaemon
+appcontroller
 Makefile
 *.o
 moc_*.cpp
