@@ -47,8 +47,10 @@ static pid_t lastPID()
     bool ok;
     pid_t pid = f.readAll().toUInt(&ok);
     f.close();
-    if (!ok)
-        qFatal("Invalid last PID.");
+    if (!ok) {
+        qDebug("Invalid last PID.");
+        return 0;
+    }
 
     return pid;
 }
@@ -86,25 +88,31 @@ int main(int argc, char **argv)
 
     QStringList args = app.arguments();
     args.removeFirst();
-    if (args.size() == 0)
-        qFatal("No arguments given.");
+    if (args.size() == 0) {
+        qDebug("No arguments given.");
+        return 1;
+    }
 
     while (!args.isEmpty()) {
         if (args[0] == "--start") {
             if (args.size() < 2) {
-                qFatal("--start requires and argument");
+                qDebug("--start requires and argument");
+                return 1;
             }
             binary = args[1];
             args.removeFirst();
-            if (binary.isEmpty())
-                qFatal("App path is empty");
+            if (binary.isEmpty()) {
+                qDebug("App path is empty");
+                return 1;
+            }
             stop();
             loadDefaults(defaultArgs);
         } else if (args[0] == "--stop") {
             stop();
             return 0;
         } else {
-            qFatal("unknown argument: %s", args.first().toLocal8Bit().constData());
+            qDebug() << "unknown argument:" << args.first();
+            return 1;
         }
         args.removeFirst();
     }
