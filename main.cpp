@@ -48,7 +48,7 @@ static pid_t lastPID()
     pid_t pid = f.readAll().toUInt(&ok);
     f.close();
     if (!ok) {
-        qDebug("Invalid last PID.");
+        qWarning("Invalid last PID.");
         return 0;
     }
 
@@ -65,8 +65,10 @@ static void stop()
     if (rc != 0) {
         if (errno == ESRCH)
             return;
-        else
-            qFatal("Kill not permitted/invalid");
+        else {
+            qWarning("Kill not permitted/invalid");
+            return;
+        }
     }
 
     sleep(1);
@@ -75,8 +77,10 @@ static void stop()
     if (rc != 0) {
         if (errno == ESRCH)
             return;
-        else
-            qFatal("Kill not permitted/invalid");
+        else {
+            qWarning("Kill not permitted/invalid");
+            return;
+        }
     }
 }
 
@@ -89,20 +93,20 @@ int main(int argc, char **argv)
     QStringList args = app.arguments();
     args.removeFirst();
     if (args.size() == 0) {
-        qDebug("No arguments given.");
+        qWarning("No arguments given.");
         return 1;
     }
 
     while (!args.isEmpty()) {
         if (args[0] == "--start") {
             if (args.size() < 2) {
-                qDebug("--start requires and argument");
+                qWarning("--start requires and argument");
                 return 1;
             }
             binary = args[1];
             args.removeFirst();
             if (binary.isEmpty()) {
-                qDebug("App path is empty");
+                qWarning("App path is empty");
                 return 1;
             }
             stop();
@@ -111,7 +115,7 @@ int main(int argc, char **argv)
             stop();
             return 0;
         } else {
-            qDebug() << "unknown argument:" << args.first();
+            qWarning("unknown argument: %s", args.first().toLocal8Bit().constData());
             return 1;
         }
         args.removeFirst();
