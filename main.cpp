@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <QStringList>
+#include <fcntl.h>
 
 #define PID_FILE "/data/user/.appcontroller"
 
@@ -37,16 +38,11 @@ static void loadDefaults(QStringList &defaultArgs)
     // append=...
 }
 
-static pid_t lastPID()
+static pid_t lastPID(QFile &f)
 {
-    QFile f(PID_FILE);
-    if (!f.open(QFile::ReadOnly)) {
-        qDebug() << "Could not open" << f.fileName();
-        return 0;
-    }
+    f.seek(0);
     bool ok;
     pid_t pid = f.readAll().toUInt(&ok);
-    f.close();
     if (!ok) {
         qWarning("Invalid last PID.");
         return 0;
@@ -55,9 +51,9 @@ static pid_t lastPID()
     return pid;
 }
 
-static void stop()
+static void stop(QFile &file)
 {
-    pid_t pid = lastPID();
+    pid_t pid = lastPID(file);
     if (pid == 0)
         return;
 
@@ -84,6 +80,21 @@ static void stop()
     }
 }
 
+int lockFile(int handle)
+{
+    struct flock lock;
+    lock.l_type = F_WRLCK | F_RDLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 100;
+    int rc = fcntl(handle, F_SETLKW, &lock);
+    if (rc != 0) {
+        perror("Locking failed");
+        return 1;
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
@@ -97,6 +108,18 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QFile f(PID_FILE);
+    if (!f.open(QFile::ReadWrite)) {
+        qDebug() << "Could not open PID file.";
+        return 1;
+    }
+
+    if (lockFile(f.handle()) != 0) {
+        qDebug() << "Could not get lock.";
+        return 1;
+    }
+    qDebug() << "File locked";
+
     while (!args.isEmpty()) {
         if (args[0] == "--start") {
             if (args.size() < 2) {
@@ -109,10 +132,10 @@ int main(int argc, char **argv)
                 qWarning("App path is empty");
                 return 1;
             }
-            stop();
+            stop(f);
             loadDefaults(defaultArgs);
         } else if (args[0] == "--stop") {
-            stop();
+            stop(f);
             return 0;
         } else {
             qWarning("unknown argument: %s", args.first().toLocal8Bit().constData());
@@ -130,11 +153,23 @@ int main(int argc, char **argv)
     arglist[defaultArgs.size()] = 0;
     defaultArgs.clear();
 
-    QFile f(PID_FILE);
-    if (!f.open(QFile::WriteOnly))
-        qDebug() << "Could not write PID";
-    f.write(QString::number(getpid()).toLatin1());
+    if (!f.seek(0)) {
+        qDebug() << "Could not seek.";
+        return 1;
+    }
+    if (!f.resize(0)) {
+        qDebug() << "Could not resize.";
+        return 1;
+    }
+
+    QByteArray data = QString::number(getpid()).toLatin1();
+
+    if (f.write(data) != data.size()) {
+        qDebug() << "Write failed.";
+        return 1;
+    }
     f.close();
+    qDebug() << "Starting binary";
 
     execv(binary.toLocal8Bit().constData(), arglist);
 
