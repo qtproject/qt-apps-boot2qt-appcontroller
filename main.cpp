@@ -10,7 +10,7 @@
 
 static void loadDefaults(QStringList &defaultArgs)
 {
-    QFile f("/system/bin/appdaemon.conf");
+    QFile f("/system/bin/appcontroller.conf");
 
     if (!f.open(QFile::ReadOnly)) {
         qWarning("Could not read config file.");
