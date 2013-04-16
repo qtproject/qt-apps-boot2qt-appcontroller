@@ -1,6 +1,7 @@
 #include <QCoreApplication>
 #include <QFile>
 #include <QDebug>
+#include <QTcpServer>
 #include <errno.h>
 #include <unistd.h>
 #include <QStringList>
@@ -95,6 +96,17 @@ int lockFile(int handle)
     return 0;
 }
 
+int findFirstFreePort(int start, int end)
+{
+    QTcpServer s;
+
+    for (; start <= end; start++) {
+        if (s.listen(QHostAddress::Any, start))
+            return start;
+    }
+    return -1;
+}
+
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
@@ -123,7 +135,7 @@ int main(int argc, char **argv)
     while (!args.isEmpty()) {
         if (args[0] == "--start") {
             if (args.size() < 2) {
-                qWarning("--start requires and argument");
+                qWarning("--start requires an argument");
                 return 1;
             }
             binary = args[1];
@@ -134,6 +146,37 @@ int main(int argc, char **argv)
             }
             stop(f);
             loadDefaults(defaultArgs);
+            defaultArgs.push_front(binary);
+        } else if (args[0] == "--start-debug") {
+            if (args.size() < 4) {
+                qWarning("--start-debug requires arguments: start-port-range end-port-range and executable");
+                return 1;
+            }
+            int range_start = args[1].toUInt();
+            int range_end = args[2].toUInt();
+            binary = args[3];
+            args.removeFirst();
+            args.removeFirst();
+            args.removeFirst();
+            if (range_start == 0 || range_end == 0 || range_start > range_end) {
+                qWarning("Invalid port range");
+                return 1;
+            }
+            if (binary.isEmpty()) {
+                qWarning("App path is empty");
+                return 1;
+            }
+            stop(f);
+            loadDefaults(defaultArgs);
+
+            int port = findFirstFreePort(range_start, range_end);
+            if (port < 0) {
+                qWarning("Could not find an unsued port in range");
+                return 1;
+            }
+            defaultArgs.push_front(binary);
+            defaultArgs.push_front("localhost" + QString::number(port));
+            defaultArgs.push_front("gdbserver");
         } else if (args[0] == "--stop") {
             stop(f);
             return 0;
@@ -143,8 +186,6 @@ int main(int argc, char **argv)
         }
         args.removeFirst();
     }
-
-    defaultArgs.push_front(binary);
 
     char **arglist = new char*[defaultArgs.size()+1];
     for (int i = 0; i < defaultArgs.size(); i++) {
