@@ -1,4 +1,5 @@
 #include "process.h"
+#include "portlist.h"
 #include <QCoreApplication>
 #include <QTcpServer>
 #include <QProcess>
@@ -95,13 +96,13 @@ static void stop()
     connectSocket();
 }
 
-static int findFirstFreePort(int start, int end)
+static int findFirstFreePort(Utils::PortList range)
 {
     QTcpServer s;
 
-    for (; start <= end; start++) {
-        if (s.listen(QHostAddress::Any, start))
-            return start;
+    while (range.hasMore()) {
+        if (s.listen(QHostAddress::Any, range.getNext()))
+            return s.serverPort();
     }
     return -1;
 }
@@ -134,30 +135,24 @@ int main(int argc, char **argv)
             }
             defaultArgs.append(args);
             break;
-        } else if (args[0] == "--start-debug") {
+        } else if (args[0] == "--debug") {
             debug = true;
-            if (args.size() < 4) {
-                qWarning("--start-debug requires arguments: start-port-range end-port-range and executable");
+            if (args.size() < 3) {
+                qWarning("--debug requires arguments: port-range and executable");
                 return 1;
             }
-            int range_start = args[1].toUInt();
-            int range_end = args[2].toUInt();
-            binary = args[3];
+            Utils::PortList range = Utils::PortList::fromString(args[1]);
+            binary = args[2];
             args.removeFirst();
             args.removeFirst();
-            args.removeFirst();
-            if (range_start == 0 || range_end == 0 || range_start > range_end) {
-                qWarning("Invalid port range");
-                return 1;
-            }
             if (binary.isEmpty()) {
                 qWarning("App path is empty");
                 return 1;
             }
 
-            int port = findFirstFreePort(range_start, range_end);
+            int port = findFirstFreePort(range);
             if (port < 0) {
-                qWarning("Could not find an unsued port in range");
+                qWarning("Could not find an unused port in range");
                 return 1;
             }
             defaultArgs.push_front("localhost:" + QString::number(port));
