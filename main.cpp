@@ -1,102 +1,92 @@
+#include "process.h"
 #include <QCoreApplication>
-#include <QFile>
-#include <QDebug>
 #include <QTcpServer>
+#include <QProcess>
 #include <errno.h>
-#include <unistd.h>
 #include <QStringList>
-#include <fcntl.h>
+#include <QSocketNotifier>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 #define PID_FILE "/data/user/.appcontroller"
 
-static void loadDefaults(QStringList &defaultArgs)
+static int serverSocket = -1;
+
+static const char socketPath[] = "#Boot2Qt_appcontroller";
+
+static void setupAddressStruct(struct sockaddr_un &address)
 {
-    QFile f("/system/bin/appcontroller.conf");
-
-    if (!f.open(QFile::ReadOnly)) {
-        qWarning("Could not read config file.");
-        return;
-    }
-
-    while (!f.atEnd()) {
-        QString line = f.readLine();
-        if (line.startsWith("env=")) {
-                QString sub = line.mid(4).simplified();
-                int index = sub.indexOf('=');
-                if (index < 2) {
-                    // ignore
-                } else {
-                    setenv(sub.left(index).toLocal8Bit().constData(), sub.mid(index+1).toLocal8Bit().constData(), 1);
-                    qDebug() << sub.left(index) << sub.mid(index+1);
-                }
-        } else if (line.startsWith("append=")) {
-              defaultArgs += line.mid(7).simplified();
-              qDebug() << defaultArgs;
-        }
-    }
-
-    // env=...
-    // append=...
+    address.sun_family = AF_UNIX;
+    memset(address.sun_path, 0, sizeof(address.sun_path));
+    strncpy(address.sun_path, socketPath, sizeof(address.sun_path)-1);
+    address.sun_path[0] = 0;
 }
 
-static pid_t lastPID(QFile &f)
+static int connectSocket()
 {
-    f.seek(0);
-    bool ok;
-    pid_t pid = f.readAll().toUInt(&ok);
-    if (!ok) {
-        qWarning("Invalid last PID.");
-        return 0;
-    }
+  int create_socket;
+  struct sockaddr_un address;
 
-    return pid;
+  if ((create_socket=socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+      perror("Could not create socket");
+      return -1;
+  }
+
+  setupAddressStruct(address);
+
+  if (connect(create_socket, (struct sockaddr *) &address, sizeof (address)) != 0) {
+    perror("Could not connect");
+    return -1;
+  }
+  close(create_socket);
+  return 0;
 }
 
-static void stop(QFile &file)
+static int createServerSocket()
 {
-    pid_t pid = lastPID(file);
-    if (pid == 0)
-        return;
+  struct sockaddr_un address;
 
-    int rc = ::kill(pid, SIGTERM);
-    if (rc != 0) {
-        if (errno == ESRCH)
-            return;
-        else {
-            qWarning("Kill not permitted/invalid");
-            return;
-        }
-    }
+  if ((serverSocket=socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+      perror("Could not create socket");
+      return -1;
+  }
 
-    sleep(1);
+  setupAddressStruct(address);
 
-    rc = ::kill(pid, SIGKILL);
-    if (rc != 0) {
-        if (errno == ESRCH)
-            return;
-        else {
-            qWarning("Kill not permitted/invalid");
-            return;
-        }
-    }
+  if (bind(serverSocket, (struct sockaddr *) &address, sizeof (address)) != 0) {
+      if (errno != EADDRINUSE) {
+          perror("Could not bind socket");
+          return -1;
+      }
+
+      if (connectSocket() != 0) {
+          fprintf(stderr, "Failed to connect to process\n");
+          return -1;
+      }
+
+      usleep(500000);
+      // try again
+      if (bind(serverSocket, (struct sockaddr *) &address, sizeof (address)) != 0) {
+          perror("Could not bind socket");
+          return -1;
+      }
+  }
+
+  if (listen(serverSocket, 5) != 0) {
+      perror("Could not listen");
+      return -1;
+  }
+
+  return 0;
 }
 
-int lockFile(int handle)
+static void stop()
 {
-    struct flock lock;
-    lock.l_type = F_WRLCK | F_RDLCK;
-    lock.l_whence = SEEK_SET;
-    lock.l_start = 0;
-    lock.l_len = 100;
-    int rc = fcntl(handle, F_SETLKW, &lock);
-    if (rc != 0) {
-        perror("Locking failed");
-        return 1;
-    }
-    return 0;
+    connectSocket();
 }
 
-int findFirstFreePort(int start, int end)
+static int findFirstFreePort(int start, int end)
 {
     QTcpServer s;
 
@@ -112,6 +102,7 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     QStringList defaultArgs;
     QString binary;
+    bool debug = false;
 
     QStringList args = app.arguments();
     args.removeFirst();
@@ -119,18 +110,6 @@ int main(int argc, char **argv)
         qWarning("No arguments given.");
         return 1;
     }
-
-    QFile f(PID_FILE);
-    if (!f.open(QFile::ReadWrite)) {
-        qDebug() << "Could not open PID file.";
-        return 1;
-    }
-
-    if (lockFile(f.handle()) != 0) {
-        qDebug() << "Could not get lock.";
-        return 1;
-    }
-    qDebug() << "File locked";
 
     while (!args.isEmpty()) {
         if (args[0] == "--start") {
@@ -144,10 +123,10 @@ int main(int argc, char **argv)
                 qWarning("App path is empty");
                 return 1;
             }
-            stop(f);
-            loadDefaults(defaultArgs);
-            defaultArgs.push_front(binary);
+            defaultArgs.append(args);
+            break;
         } else if (args[0] == "--start-debug") {
+            debug = true;
             if (args.size() < 4) {
                 qWarning("--start-debug requires arguments: start-port-range end-port-range and executable");
                 return 1;
@@ -166,19 +145,20 @@ int main(int argc, char **argv)
                 qWarning("App path is empty");
                 return 1;
             }
-            stop(f);
-            loadDefaults(defaultArgs);
 
             int port = findFirstFreePort(range_start, range_end);
             if (port < 0) {
                 qWarning("Could not find an unsued port in range");
                 return 1;
             }
-            defaultArgs.push_front(binary);
-            defaultArgs.push_front("localhost" + QString::number(port));
+            defaultArgs.push_front("localhost:" + QString::number(port));
             defaultArgs.push_front("gdbserver");
+            defaultArgs.append(args);
+            setpgid(0,0); // must be called before setsid()
+            setsid();
+            break;
         } else if (args[0] == "--stop") {
-            stop(f);
+            stop();
             return 0;
         } else {
             qWarning("unknown argument: %s", args.first().toLocal8Bit().constData());
@@ -187,32 +167,18 @@ int main(int argc, char **argv)
         args.removeFirst();
     }
 
-    char **arglist = new char*[defaultArgs.size()+1];
-    for (int i = 0; i < defaultArgs.size(); i++) {
-        arglist[i] = strdup(defaultArgs[i].toLocal8Bit().constData());
-    }
-    arglist[defaultArgs.size()] = 0;
-    defaultArgs.clear();
-
-    if (!f.seek(0)) {
-        qDebug() << "Could not seek.";
-        return 1;
-    }
-    if (!f.resize(0)) {
-        qDebug() << "Could not resize.";
+    if (createServerSocket() != 0) {
+        fprintf(stderr, "Could not create serversocket\n");
         return 1;
     }
 
-    QByteArray data = QString::number(getpid()).toLatin1();
-
-    if (f.write(data) != data.size()) {
-        qDebug() << "Write failed.";
-        return 1;
-    }
-    f.close();
-    qDebug() << "Starting binary";
-
-    execv(binary.toLocal8Bit().constData(), arglist);
-
+    Process process;
+    if (debug)
+        process.setDebug();
+    process.setSocketNotifier(new QSocketNotifier(serverSocket, QSocketNotifier::Read, &process));
+    process.start(defaultArgs);
+    app.exec();
+    close(serverSocket);
     return 0;
 }
+
