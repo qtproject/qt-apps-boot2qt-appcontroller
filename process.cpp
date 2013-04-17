@@ -35,7 +35,9 @@ Process::Process()
     connect(n, SIGNAL(activated(int)), this, SLOT(stop()));
 
     signal(SIGINT, signalhandler);
-    signal(SIGKILL, signalhandler);
+    signal(SIGTERM, signalhandler);
+    signal(SIGHUP, signalhandler);
+    signal(SIGPIPE, signalhandler);
 }
 
 Process::~Process()
