@@ -6,6 +6,14 @@
 #include <QSocketNotifier>
 #include <sys/socket.h>
 #include <signal.h>
+#include <fcntl.h>
+
+static int pipefd[2];
+
+static void signalhandler(int)
+{
+    write(pipefd[1], " ", 1);
+}
 
 Process::Process()
     : QObject(0)
@@ -19,10 +27,21 @@ Process::Process()
     connect(mProcess, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finished(int, QProcess::ExitStatus)));
     connect(mProcess, SIGNAL(error(QProcess::ProcessError)), this, SLOT(error(QProcess::ProcessError)));
     connect(mProcess, SIGNAL(finished(int, QProcess::ExitStatus)), qApp, SLOT(quit()));
+
+    if (pipe2(pipefd, O_CLOEXEC) != 0)
+        qWarning("Could not create pipe");
+
+    QSocketNotifier *n = new QSocketNotifier(pipefd[0], QSocketNotifier::Read, this);
+    connect(n, SIGNAL(activated(int)), this, SLOT(stop()));
+
+    signal(SIGINT, signalhandler);
+    signal(SIGKILL, signalhandler);
 }
 
 Process::~Process()
 {
+    close(pipefd[0]);
+    close(pipefd[1]);
 }
 
 void Process::readyReadStandardOutput()
