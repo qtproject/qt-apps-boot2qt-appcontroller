@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #define PID_FILE "/data/user/.appcontroller"
 
@@ -28,9 +29,13 @@ static int connectSocket()
   int create_socket;
   struct sockaddr_un address;
 
-  if ((create_socket=socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) < 0) {
+  if ((create_socket = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
       perror("Could not create socket");
       return -1;
+  }
+
+  if (fcntl(create_socket, F_SETFD, FD_CLOEXEC) == -1) {
+      perror("Unable to set CLOEXEC");
   }
 
   setupAddressStruct(address);
@@ -47,9 +52,13 @@ static int createServerSocket()
 {
   struct sockaddr_un address;
 
-  if ((serverSocket=socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) < 0) {
+  if ((serverSocket = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
       perror("Could not create socket");
       return -1;
+  }
+
+  if (fcntl(serverSocket, F_SETFD, FD_CLOEXEC) == -1) {
+      perror("Unable to set CLOEXEC");
   }
 
   setupAddressStruct(address);
