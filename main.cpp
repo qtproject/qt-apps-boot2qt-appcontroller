@@ -28,7 +28,7 @@ static int connectSocket()
   int create_socket;
   struct sockaddr_un address;
 
-  if ((create_socket=socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+  if ((create_socket=socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) < 0) {
       perror("Could not create socket");
       return -1;
   }
@@ -47,7 +47,7 @@ static int createServerSocket()
 {
   struct sockaddr_un address;
 
-  if ((serverSocket=socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+  if ((serverSocket=socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) < 0) {
       perror("Could not create socket");
       return -1;
   }
