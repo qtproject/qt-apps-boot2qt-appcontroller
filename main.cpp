@@ -64,31 +64,33 @@ static int createServerSocket()
 
   setupAddressStruct(address);
 
-  if (bind(serverSocket, (struct sockaddr *) &address, sizeof (address)) != 0) {
-      if (errno != EADDRINUSE) {
-          perror("Could not bind socket");
-          return -1;
-      }
+  unsigned int tries = 20;
 
-      if (connectSocket() != 0) {
-          fprintf(stderr, "Failed to connect to process\n");
-          return -1;
-      }
-
-      usleep(500000);
-      // try again
+  while (tries > 0) {
+      --tries;
       if (bind(serverSocket, (struct sockaddr *) &address, sizeof (address)) != 0) {
-          perror("Could not bind socket");
+          if (errno != EADDRINUSE) {
+              perror("Could not bind socket: App is still running");
+              return -1;
+          }
+
+          if (connectSocket() != 0) {
+              fprintf(stderr, "Failed to connect to process\n");
+          }
+
+          usleep(500000);
+          continue;
+      }
+
+      if (listen(serverSocket, 5) != 0) {
+          perror("Could not listen");
           return -1;
       }
+      else
+          return 0;
   }
 
-  if (listen(serverSocket, 5) != 0) {
-      perror("Could not listen");
-      return -1;
-  }
-
-  return 0;
+  return -1;
 }
 
 static void stop()
