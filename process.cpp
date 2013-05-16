@@ -87,7 +87,11 @@ void Process::startup(QStringList args)
 {
     QProcessEnvironment pe = QProcessEnvironment::systemEnvironment();
 
+#ifdef Q_OS_ANDROID
     QFile f("/system/bin/appcontroller.conf");
+#else
+    QFile f("/etc/appcontroller.conf");
+#endif
 
     if (!f.open(QFile::ReadOnly)) {
         qWarning("Could not read config file.");

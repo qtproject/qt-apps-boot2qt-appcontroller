@@ -9,5 +9,9 @@ SOURCES=\
         process.cpp \
         portlist.cpp \
 
-target.path = $$[INSTALL_ROOT]/system/bin
+android {
+    target.path = $$[INSTALL_ROOT]/system/bin
+} else {
+    target.path = $$[INSTALL_ROOT]/usr/bin
+}
 INSTALLS+=target
