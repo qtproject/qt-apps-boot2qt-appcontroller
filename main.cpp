@@ -111,13 +111,16 @@ static int findFirstFreePort(Utils::PortList range)
 
 int main(int argc, char **argv)
 {
+    // Save arguments before QCoreApplication handles them
+    QStringList args;
+    for (int i = 1; i < argc; i++)
+        args.append(argv[i]);
+
     QCoreApplication app(argc, argv);
     QStringList defaultArgs;
     QString binary;
     bool debug = false;
 
-    QStringList args = app.arguments();
-    args.removeFirst();
     if (args.size() == 0) {
         qWarning("No arguments given.");
         return 1;
