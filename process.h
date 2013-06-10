@@ -1,7 +1,15 @@
 #include <QObject>
 #include <QProcess>
+#include <QMap>
 
 class QSocketNotifier;
+
+struct Config {
+    QString base;
+    QString platform;
+    QMap<QString,QString> env;
+    QStringList args;
+};
 
 class Process : public QObject
 {
@@ -12,6 +20,7 @@ public:
     void start(const QStringList &args);
     void setSocketNotifier(QSocketNotifier*);
     void setDebug();
+    void setConfig(const Config &);
 public slots:
     void stop();
 private slots:
@@ -25,4 +34,5 @@ private:
     QProcess *mProcess;
     int mDebuggee;
     bool mDebug;
+    Config mConfig;
 };

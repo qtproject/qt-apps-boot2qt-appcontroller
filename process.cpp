@@ -87,35 +87,13 @@ void Process::startup(QStringList args)
 {
     QProcessEnvironment pe = QProcessEnvironment::systemEnvironment();
 
-#ifdef Q_OS_ANDROID
-    QFile f("/system/bin/appcontroller.conf");
-#else
-    QFile f("/etc/appcontroller.conf");
-#endif
-
-    if (!f.open(QFile::ReadOnly)) {
-        qWarning("Could not read config file.");
+    foreach (const QString &key, mConfig.env.keys()) {
+        qDebug() << key << mConfig.env.value(key);
+        pe.insert(key, mConfig.env.value(key));
     }
 
-    while (!f.atEnd()) {
-        QString line = f.readLine();
-        if (line.startsWith("env=")) {
-                QString sub = line.mid(4).simplified();
-                int index = sub.indexOf('=');
-                if (index < 2) {
-                    // ignore
-                } else {
-                    pe.insert(sub.left(index), sub.mid(index+1));
-                    qDebug() << sub.left(index) << sub.mid(index+1);
-                }
-        } else if (line.startsWith("append=")) {
-              args += line.mid(7).simplified();
-              qDebug() << args;
-        }
-    }
-
-    // env=...
-    // append=...
+    args.append(mConfig.args);
+    qDebug() << args;
 
     mProcess->setProcessEnvironment(pe);
     QString binary = args.first();
@@ -159,4 +137,9 @@ void Process::incomingConnection(int i)
 void Process::setSocketNotifier(QSocketNotifier *s)
 {
     connect(s, SIGNAL(activated(int)), this, SLOT(incomingConnection(int)));
+}
+
+void Process::setConfig(const Config &config)
+{
+    mConfig = config;
 }

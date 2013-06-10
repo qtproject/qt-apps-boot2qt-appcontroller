@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <QStringList>
 #include <QSocketNotifier>
+#include <QFile>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -109,6 +110,43 @@ static int findFirstFreePort(Utils::PortList range)
     return -1;
 }
 
+static Config parseConfigFile()
+{
+    Config config;
+    config.base = config.platform = QLatin1String("unknown");
+
+#ifdef Q_OS_ANDROID
+    QFile f("/system/bin/appcontroller.conf");
+#else
+    QFile f("/etc/appcontroller.conf");
+#endif
+
+    if (!f.open(QFile::ReadOnly)) {
+        qWarning("Could not read config file.");
+        return config;
+    }
+
+    while (!f.atEnd()) {
+        QString line = f.readLine();
+        if (line.startsWith("env=")) {
+                QString sub = line.mid(4).simplified();
+                int index = sub.indexOf('=');
+                if (index < 2) {
+                    // ignore
+                } else
+                    config.env[sub.left(index)] = sub.mid(index+1);
+        } else if (line.startsWith("append=")) {
+              config.args += line.mid(7).simplified();
+        } else if (line.startsWith("base=")) {
+              config.base = line.mid(5).simplified();
+        } else if (line.startsWith("platform=")) {
+              config.platform = line.mid(9).simplified();
+        }
+    }
+    f.close();
+    return config;
+}
+
 int main(int argc, char **argv)
 {
     // Save arguments before QCoreApplication handles them
@@ -125,6 +163,8 @@ int main(int argc, char **argv)
         qWarning("No arguments given.");
         return 1;
     }
+
+    Config config = parseConfigFile();
 
     while (!args.isEmpty()) {
         if (args[0] == "--start") {
@@ -169,6 +209,11 @@ int main(int argc, char **argv)
         } else if (args[0] == "--stop") {
             stop();
             return 0;
+        } else if (args[0] == "--show-platform") {
+            printf("base:%s\nplatform:%s\n",
+                config.base.toLocal8Bit().constData(),
+                config.platform.toLocal8Bit().constData());
+            return 0;
         } else {
             qWarning("unknown argument: %s", args.first().toLocal8Bit().constData());
             return 1;
@@ -182,6 +227,7 @@ int main(int argc, char **argv)
     }
 
     Process process;
+    process.setConfig(config);
     if (debug)
         process.setDebug();
     process.setSocketNotifier(new QSocketNotifier(serverSocket, QSocketNotifier::Read, &process));
