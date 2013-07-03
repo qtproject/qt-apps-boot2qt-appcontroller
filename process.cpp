@@ -93,12 +93,11 @@ void Process::startup(QStringList args)
     }
 
     args.append(mConfig.args);
-    qDebug() << args;
 
     mProcess->setProcessEnvironment(pe);
     QString binary = args.first();
-    qDebug() << binary << args;
     args.removeFirst();
+    qDebug() << binary << args;
     mProcess->start(binary, args);
 }
 

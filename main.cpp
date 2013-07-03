@@ -99,7 +99,7 @@ static void stop()
     connectSocket();
 }
 
-static int findFirstFreePort(Utils::PortList range)
+static int findFirstFreePort(Utils::PortList &range)
 {
     QTcpServer s;
 
@@ -156,8 +156,10 @@ int main(int argc, char **argv)
 
     QCoreApplication app(argc, argv);
     QStringList defaultArgs;
-    QString binary;
-    bool debug = false;
+    quint16 gdbDebugPort = 0;
+    bool useGDB = false;
+    bool useQML = false;
+    Utils::PortList range;
 
     if (args.size() == 0) {
         qWarning("No arguments given.");
@@ -167,45 +169,23 @@ int main(int argc, char **argv)
     Config config = parseConfigFile();
 
     while (!args.isEmpty()) {
-        if (args[0] == "--start") {
+        if (args[0] == "--port-range") {
             if (args.size() < 2) {
-                qWarning("--start requires an argument");
+                qWarning("--port-range requires a range specification");
                 return 1;
             }
-            binary = args[1];
+            range = Utils::PortList::fromString(args[1]);
             args.removeFirst();
-            if (binary.isEmpty()) {
-                qWarning("App path is empty");
+            if (!range.hasMore()) {
+                qWarning("Invalid port range");
                 return 1;
             }
-            defaultArgs.append(args);
-            break;
-        } else if (args[0] == "--debug") {
-            debug = true;
-            if (args.size() < 3) {
-                qWarning("--debug requires arguments: port-range and executable");
-                return 1;
-            }
-            Utils::PortList range = Utils::PortList::fromString(args[1]);
-            binary = args[2];
-            args.removeFirst();
-            args.removeFirst();
-            if (binary.isEmpty()) {
-                qWarning("App path is empty");
-                return 1;
-            }
-
-            int port = findFirstFreePort(range);
-            if (port < 0) {
-                qWarning("Could not find an unused port in range");
-                return 1;
-            }
-            defaultArgs.push_front("localhost:" + QString::number(port));
-            defaultArgs.push_front("gdbserver");
-            defaultArgs.append(args);
+        } else if (args[0] == "--debug-gdb") {
+            useGDB = true;
             setpgid(0,0); // must be called before setsid()
             setsid();
-            break;
+        } else if (args[0] == "--debug-qml") {
+            useQML = true;
         } else if (args[0] == "--stop") {
             stop();
             return 0;
@@ -215,10 +195,45 @@ int main(int argc, char **argv)
                 config.platform.toLocal8Bit().constData());
             return 0;
         } else {
-            qWarning("unknown argument: %s", args.first().toLocal8Bit().constData());
-            return 1;
+            break;
         }
         args.removeFirst();
+    }
+
+    if (args.isEmpty()) {
+        qWarning("No binary to execute.");
+        return 1;
+    }
+
+    if ((useGDB || useQML) && !range.hasMore()) {
+        qWarning("--port-range is mandatory");
+        return 1;
+    }
+
+    if (useGDB) {
+        int port = findFirstFreePort(range);
+        if (port < 0) {
+            qWarning("Could not find an unused port in range");
+            return 1;
+        }
+        gdbDebugPort = port;
+    }
+    if (useQML) {
+        int port = findFirstFreePort(range);
+        if (port < 0) {
+            qWarning("Could not find an unused port in range");
+            return 1;
+        }
+        defaultArgs.push_front("-qmljsdebugger=port:" + QString::number(port) + ",block");
+        printf("QML Debugger: Going to wait for connection on port %d...\n", port);
+    }
+
+    defaultArgs.push_front(args.takeFirst());
+    defaultArgs.append(args);
+
+    if (useGDB) {
+        defaultArgs.push_front("localhost:" + QString::number(gdbDebugPort));
+        defaultArgs.push_front("gdbserver");
     }
 
     if (createServerSocket() != 0) {
@@ -228,7 +243,7 @@ int main(int argc, char **argv)
 
     Process process;
     process.setConfig(config);
-    if (debug)
+    if (gdbDebugPort)
         process.setDebug();
     process.setSocketNotifier(new QSocketNotifier(serverSocket, QSocketNotifier::Read, &process));
     process.start(defaultArgs);
