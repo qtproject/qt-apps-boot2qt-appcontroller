@@ -70,9 +70,29 @@ void Process::setDebug()
     mDebug = true;
 }
 
-void Process::error(QProcess::ProcessError)
+void Process::error(QProcess::ProcessError error)
 {
-    qDebug() << "Process error";
+    switch (error) {
+    case QProcess::FailedToStart:
+        printf("Failed to start\n");
+        break;
+    case QProcess::Crashed:
+        printf("Crashed\n");
+        break;
+    case QProcess::Timedout:
+        printf("Timedout\n");
+        break;
+    case QProcess::WriteError:
+        printf("Write error\n");
+        break;
+    case QProcess::ReadError:
+        printf("Read error\n");
+        break;
+    case QProcess::UnknownError:
+        printf("Unknown error\n");
+        break;
+    }
+    qApp->quit();
 }
 
 void Process::finished(int exitCode, QProcess::ExitStatus exitStatus)
