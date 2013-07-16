@@ -154,7 +154,6 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; i++)
         args.append(argv[i]);
 
-    QCoreApplication app(argc, argv);
     QStringList defaultArgs;
     quint16 gdbDebugPort = 0;
     bool useGDB = false;
@@ -241,6 +240,9 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // Create QCoreApplication after parameter parsing to prevent printing evaluation
+    // message to terminal before QtCreator has parsed the output.
+    QCoreApplication app(argc, argv);
     Process process;
     process.setConfig(config);
     if (gdbDebugPort)
