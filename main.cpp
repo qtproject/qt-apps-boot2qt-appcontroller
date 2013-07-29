@@ -128,7 +128,7 @@ static Config parseConfigFile()
 #endif
 
     if (!f.open(QFile::ReadOnly)) {
-        qWarning("Could not read config file.");
+        fprintf(stderr, "Could not read config file.\n");
         return config;
     }
 
@@ -169,7 +169,7 @@ static bool makeDefault(const QString &filepath)
     QFile executable(filepath);
 
     if (!executable.exists()) {
-        qWarning("File %s does not exist.", executable.fileName().toLocal8Bit().constData());
+        fprintf(stderr, "File %s does not exist.\n", executable.fileName().toLocal8Bit().constData());
         return false;
     }
 
@@ -196,8 +196,8 @@ int main(int argc, char **argv)
     bool useQML = false;
     Utils::PortList range;
 
-    if (args.size() == 0) {
-        qWarning("No arguments given.");
+    if (args.isEmpty()) {
+        fprintf(stderr, "No arguments given.\n");
         return 1;
     }
 
@@ -213,7 +213,7 @@ int main(int argc, char **argv)
             }
             range = Utils::PortList::fromString(args.takeFirst());
             if (!range.hasMore()) {
-                qWarning("Invalid port range");
+                fprintf(stderr, "Invalid port range\n");
                 return 1;
             }
         } else if (arg == "--debug-gdb") {
@@ -250,19 +250,19 @@ int main(int argc, char **argv)
     }
 
     if (args.isEmpty()) {
-        qWarning("No binary to execute.");
+        fprintf(stderr, "No binary to execute.\n");
         return 1;
     }
 
     if ((useGDB || useQML) && !range.hasMore()) {
-        qWarning("--port-range is mandatory");
+        fprintf(stderr, "--port-range is mandatory\n");
         return 1;
     }
 
     if (useGDB) {
         int port = findFirstFreePort(range);
         if (port < 0) {
-            qWarning("Could not find an unused port in range");
+            fprintf(stderr, "Could not find an unused port in range\n");
             return 1;
         }
         gdbDebugPort = port;
@@ -270,7 +270,7 @@ int main(int argc, char **argv)
     if (useQML) {
         int port = findFirstFreePort(range);
         if (port < 0) {
-            qWarning("Could not find an unused port in range");
+            fprintf(stderr, "Could not find an unused port in range\n");
             return 1;
         }
         defaultArgs.push_front("-qmljsdebugger=port:" + QString::number(port) + ",block");
