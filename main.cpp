@@ -168,35 +168,36 @@ int main(int argc, char **argv)
     Config config = parseConfigFile();
 
     while (!args.isEmpty()) {
-        if (args[0] == "--port-range") {
-            if (args.size() < 2) {
-                qWarning("--port-range requires a range specification");
+        const QString arg(args.takeFirst());
+
+        if (arg == "--port-range") {
+            if (args.isEmpty()) {
+                fprintf(stderr, "--port-range requires a range specification\n");
                 return 1;
             }
-            range = Utils::PortList::fromString(args[1]);
-            args.removeFirst();
+            range = Utils::PortList::fromString(args.takeFirst());
             if (!range.hasMore()) {
                 qWarning("Invalid port range");
                 return 1;
             }
-        } else if (args[0] == "--debug-gdb") {
+        } else if (arg == "--debug-gdb") {
             useGDB = true;
             setpgid(0,0); // must be called before setsid()
             setsid();
-        } else if (args[0] == "--debug-qml") {
+        } else if (arg == "--debug-qml") {
             useQML = true;
-        } else if (args[0] == "--stop") {
+        } else if (arg == "--stop") {
             stop();
             return 0;
-        } else if (args[0] == "--show-platform") {
+        } else if (arg == "--show-platform") {
             printf("base:%s\nplatform:%s\n",
                 config.base.toLocal8Bit().constData(),
                 config.platform.toLocal8Bit().constData());
             return 0;
         } else {
+            args.prepend(arg);
             break;
         }
-        args.removeFirst();
     }
 
     if (args.isEmpty()) {
