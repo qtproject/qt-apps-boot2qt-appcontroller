@@ -14,6 +14,12 @@
 
 #define PID_FILE "/data/user/.appcontroller"
 
+#ifdef Q_OS_ANDROID
+    #define B2QT_PREFIX "/data/user/b2qt"
+#else
+    #define B2QT_PREFIX "/usr/bin/b2qt"
+#endif
+
 static int serverSocket = -1;
 
 static const char socketPath[] = "#Boot2Qt_appcontroller";
@@ -147,6 +153,36 @@ static Config parseConfigFile()
     return config;
 }
 
+static bool removeDefault()
+{
+    if (QFile::exists(B2QT_PREFIX)) {
+        if (!QFile::remove(B2QT_PREFIX)) {
+            fprintf(stderr, "Could not remove default application.\n");
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool makeDefault(const QString &filepath)
+{
+    QFile executable(filepath);
+
+    if (!executable.exists()) {
+        qWarning("File %s does not exist.", executable.fileName().toLocal8Bit().constData());
+        return false;
+    }
+
+    if (!removeDefault())
+        return false;
+
+    if (!executable.link(B2QT_PREFIX)) {
+        fprintf(stderr, "Could not link default application.\n");
+        return false;
+    }
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     // Save arguments before QCoreApplication handles them
@@ -194,6 +230,19 @@ int main(int argc, char **argv)
                 config.base.toLocal8Bit().constData(),
                 config.platform.toLocal8Bit().constData());
             return 0;
+        } else if (arg == "--make-default") {
+              if (args.isEmpty()) {
+                  fprintf(stderr, "--make-default requires an argument\n");
+                  return 1;
+              }
+              if (!makeDefault(args.takeFirst()))
+                  return 1;
+              return 0;
+        } else if (arg == "--remove-default") {
+              if (removeDefault())
+                  return 0;
+              else
+                  return 1;
         } else {
             args.prepend(arg);
             break;
