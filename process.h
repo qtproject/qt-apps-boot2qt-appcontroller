@@ -5,10 +5,18 @@
 class QSocketNotifier;
 
 struct Config {
+    enum Flag {
+        PrintDebugMessages = 0x01
+    };
+    Q_DECLARE_FLAGS(Flags, Flag)
+
+    Config() : flags(0) { }
+
     QString base;
     QString platform;
     QMap<QString,QString> env;
     QStringList args;
+    Flags flags;
 };
 
 class Process : public QObject

@@ -50,6 +50,9 @@ void Process::readyReadStandardOutput()
 {
     QByteArray b = mProcess->readAllStandardOutput();
     write(1, b.constData(), b.size());
+
+    if (mConfig.flags.testFlag(Config::PrintDebugMessages))
+        qDebug() << b;
 }
 
 void Process::readyReadStandardError()
@@ -63,6 +66,9 @@ void Process::readyReadStandardError()
         mDebug = false; // only search once
     }
     write(2, b.constData(), b.size());
+
+    if (mConfig.flags.testFlag(Config::PrintDebugMessages))
+        qDebug() << b;
 }
 
 void Process::setDebug()

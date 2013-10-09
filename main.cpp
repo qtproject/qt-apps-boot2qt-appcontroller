@@ -243,6 +243,8 @@ int main(int argc, char **argv)
                   return 0;
               else
                   return 1;
+        } else if (arg == "--print-debug") {
+            config.flags |= Config::PrintDebugMessages;
         } else {
             args.prepend(arg);
             break;
