@@ -10,6 +10,11 @@ struct Config {
     };
     Q_DECLARE_FLAGS(Flags, Flag)
 
+    enum DebugInterface{
+        LocalDebugInterface,
+        PublicDebugInterface
+    };
+
     Config() : flags(0) { }
 
     QString base;
@@ -17,6 +22,7 @@ struct Config {
     QMap<QString,QString> env;
     QStringList args;
     Flags flags;
+    DebugInterface debugInterface;
 };
 
 class Process : public QObject

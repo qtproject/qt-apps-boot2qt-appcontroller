@@ -120,6 +120,7 @@ static Config parseConfigFile()
 {
     Config config;
     config.base = config.platform = QLatin1String("unknown");
+    config.debugInterface = Config::LocalDebugInterface;
 
 #ifdef Q_OS_ANDROID
     QFile f("/system/bin/appcontroller.conf");
@@ -147,6 +148,14 @@ static Config parseConfigFile()
               config.base = line.mid(5).simplified();
         } else if (line.startsWith("platform=")) {
               config.platform = line.mid(9).simplified();
+        } else if (line.startsWith("debugInterface=")) {
+              const QString value = line.mid(15).simplified();
+              if (value == "local")
+                  config.debugInterface = Config::LocalDebugInterface;
+              else if (value == "public")
+                  config.debugInterface = Config::PublicDebugInterface;
+              else
+                  qWarning() << "Unkonwn value for debuginterface:" << value;
         }
     }
     f.close();
@@ -283,7 +292,11 @@ int main(int argc, char **argv)
     defaultArgs.append(args);
 
     if (useGDB) {
-        defaultArgs.push_front("localhost:" + QString::number(gdbDebugPort));
+        QString interface;
+        if (config.debugInterface == Config::LocalDebugInterface)
+            interface = QLatin1String("localhost");
+
+        defaultArgs.push_front(interface + ":" + QString::number(gdbDebugPort));
         defaultArgs.push_front("gdbserver");
     }
 
