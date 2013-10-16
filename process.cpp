@@ -117,6 +117,10 @@ void Process::startup(QStringList args)
         qDebug() << key << mConfig.env.value(key);
         pe.insert(key, mConfig.env.value(key));
     }
+    if (!mConfig.base.isEmpty())
+        pe.insert(QLatin1String("B2QT_BASE"), mConfig.base);
+    if (!mConfig.platform.isEmpty())
+        pe.insert(QLatin1String("B2QT_PLATFORM"), mConfig.platform);
 
     args.append(mConfig.args);
 
