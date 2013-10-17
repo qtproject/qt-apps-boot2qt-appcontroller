@@ -49,4 +49,5 @@ private:
     int mDebuggee;
     bool mDebug;
     Config mConfig;
+    QString mBinary;
 };

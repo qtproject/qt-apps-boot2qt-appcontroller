@@ -7,12 +7,60 @@
 #include <sys/socket.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <QFileInfo>
 
 static int pipefd[2];
 
 static void signalhandler(int)
 {
     write(pipefd[1], " ", 1);
+}
+
+static bool analyzeBinary(const QString &binary)
+{
+    QFileInfo fi(binary);
+    if (!fi.exists()) {
+        printf("Binary does not exist.\n");
+        return false;
+    }
+    if (!fi.isFile()) {
+        printf("Binary is not a file.\n");
+        return false;
+    }
+    if (!fi.isReadable()) {
+        printf("Binary is not readable.\n");
+        return false;
+    }
+    if (!fi.isExecutable()) {
+        printf("Binary is not executable.\n");
+        return false;
+    }
+
+    if (fi.size() < 4) {
+        printf("Binary is smaller than 4 bytes.\n");
+        return false;
+    }
+
+    QFile f(binary);
+    if (!f.open(QFile::ReadOnly)) {
+        printf("Could not open binary to analyze.\n");
+        return false;
+    }
+
+    QByteArray elfHeader = f.read(4);
+    f.close();
+
+    if (elfHeader.size() < 4) {
+        printf("Failed to read ELF header.\n");
+        return false;
+    }
+
+    if (elfHeader != QByteArray::fromHex("7f454C46")) { // 0x7f ELF
+        printf("Binary is not an ELF file.\n");
+        return false;
+    }
+
+    return true;
 }
 
 Process::Process()
@@ -81,6 +129,7 @@ void Process::error(QProcess::ProcessError error)
     switch (error) {
     case QProcess::FailedToStart:
         printf("Failed to start\n");
+        analyzeBinary(mBinary);
         break;
     case QProcess::Crashed:
         printf("Crashed\n");
@@ -125,10 +174,10 @@ void Process::startup(QStringList args)
     args.append(mConfig.args);
 
     mProcess->setProcessEnvironment(pe);
-    QString binary = args.first();
+    mBinary = args.first();
     args.removeFirst();
-    qDebug() << binary << args;
-    mProcess->start(binary, args);
+    qDebug() << mBinary << args;
+    mProcess->start(mBinary, args);
 }
 
 void Process::start(const QStringList &args)
