@@ -254,6 +254,9 @@ int main(int argc, char **argv)
                   return 1;
         } else if (arg == "--print-debug") {
             config.flags |= Config::PrintDebugMessages;
+        } else if (arg == "--version") {
+            printf("Appcontroller version: " GIT_VERSION "\nGit revision: " GIT_HASH "\n");
+            return 0;
         } else {
             args.prepend(arg);
             break;
