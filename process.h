@@ -63,6 +63,7 @@ private slots:
     void incomingConnection(int);
 private:
     void startup(QStringList);
+    QProcessEnvironment interactiveProcessEnvironment() const;
     QProcess *mProcess;
     int mDebuggee;
     bool mDebug;
