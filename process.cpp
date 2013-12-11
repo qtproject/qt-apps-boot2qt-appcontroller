@@ -185,8 +185,10 @@ void Process::startup(QStringList args)
 #endif
 
     foreach (const QString &key, mConfig.env.keys()) {
-        qDebug() << key << mConfig.env.value(key);
-        pe.insert(key, mConfig.env.value(key));
+        if (!pe.contains(key)) {
+            qDebug() << key << mConfig.env.value(key);
+            pe.insert(key, mConfig.env.value(key));
+        }
     }
     if (!mConfig.base.isEmpty())
         pe.insert(QLatin1String("B2QT_BASE"), mConfig.base);
