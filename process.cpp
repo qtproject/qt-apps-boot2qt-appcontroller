@@ -1,3 +1,21 @@
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc
+** All rights reserved.
+** For any questions to Digia, please use contact form at http://qt.digia.com
+**
+** This file is part of QtEnterprise Embedded.
+**
+** Licensees holding valid Qt Enterprise licenses may use this file in
+** accordance with the Qt Enterprise License Agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.
+**
+** If you have questions regarding the use of this file, please use
+** contact form at http://qt.digia.com
+**
+****************************************************************************/
+
 #include "process.h"
 #include <QCoreApplication>
 #include <unistd.h>
@@ -160,11 +178,17 @@ void Process::finished(int exitCode, QProcess::ExitStatus exitStatus)
 
 void Process::startup(QStringList args)
 {
+#ifdef Q_OS_ANDROID
+    QProcessEnvironment pe = interactiveProcessEnvironment();
+#else
     QProcessEnvironment pe = QProcessEnvironment::systemEnvironment();
+#endif
 
     foreach (const QString &key, mConfig.env.keys()) {
-        qDebug() << key << mConfig.env.value(key);
-        pe.insert(key, mConfig.env.value(key));
+        if (!pe.contains(key)) {
+            qDebug() << key << mConfig.env.value(key);
+            pe.insert(key, mConfig.env.value(key));
+        }
     }
     if (!mConfig.base.isEmpty())
         pe.insert(QLatin1String("B2QT_BASE"), mConfig.base);
@@ -221,3 +245,70 @@ void Process::setConfig(const Config &config)
 {
     mConfig = config;
 }
+
+QProcessEnvironment Process::interactiveProcessEnvironment() const
+{
+    QProcessEnvironment env;
+
+    QProcess process;
+    process.start("sh");
+    if (!process.waitForStarted(3000)) {
+        printf("Could not start shell.\n");
+        return env;
+    }
+
+    process.write("source /system/etc/mkshrc\n");
+    process.write("export -p\n");
+    process.closeWriteChannel();
+
+    printf("waiting for process to finish\n");
+    if (!process.waitForFinished(1000)) {
+        printf("did not finish: terminate\n");
+        process.terminate();
+        if (!process.waitForFinished(1000)) {
+            printf("did not terminate: kill\n");
+            process.kill();
+            if (!process.waitForFinished(1000)) {
+                printf("Could not stop process.\n");
+            }
+        }
+    }
+
+    QList<QByteArray> list = process.readAllStandardOutput().split('\n');
+    if (list.isEmpty())
+       printf("Failed to read environment output\n");
+
+    foreach (QByteArray entry, list) {
+        if (entry.startsWith("export ")) {
+            entry = entry.mid(7);
+        } else if (entry.startsWith("declare -x ")) {
+            entry = entry.mid(11);
+        } else {
+            continue;
+        }
+
+        QByteArray key;
+        QByteArray value;
+        int index = entry.indexOf('=');
+
+        if (index > 0) {
+            key = entry.left(index);
+            value = entry.mid(index + 1);
+        } else {
+            key = entry;
+            // value is empty
+        }
+
+        // Remove simple escaping.
+        // This is not complete.
+        if (value.startsWith('\'') and value.endsWith('\''))
+            value = value.mid(1, value.size()-2);
+        else if (value.startsWith('"') and value.endsWith('"'))
+            value = value.mid(1, value.size()-2);
+
+        env.insert(key, value);
+    }
+
+    return env;
+}
+
