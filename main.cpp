@@ -1,3 +1,21 @@
+/****************************************************************************
+**
+** Copyright (C) 2014 Digia Plc
+** All rights reserved.
+** For any questions to Digia, please use contact form at http://qt.digia.com
+**
+** This file is part of QtEnterprise Embedded.
+**
+** Licensees holding valid Qt Enterprise licenses may use this file in
+** accordance with the Qt Enterprise License Agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.
+**
+** If you have questions regarding the use of this file, please use
+** contact form at http://qt.digia.com
+**
+****************************************************************************/
+
 #include "process.h"
 #include "portlist.h"
 #include <QCoreApplication>
@@ -120,6 +138,7 @@ static Config parseConfigFile()
 {
     Config config;
     config.base = config.platform = QLatin1String("unknown");
+    config.debugInterface = Config::LocalDebugInterface;
 
 #ifdef Q_OS_ANDROID
     QFile f("/system/bin/appcontroller.conf");
@@ -147,6 +166,14 @@ static Config parseConfigFile()
               config.base = line.mid(5).simplified();
         } else if (line.startsWith("platform=")) {
               config.platform = line.mid(9).simplified();
+        } else if (line.startsWith("debugInterface=")) {
+              const QString value = line.mid(15).simplified();
+              if (value == "local")
+                  config.debugInterface = Config::LocalDebugInterface;
+              else if (value == "public")
+                  config.debugInterface = Config::PublicDebugInterface;
+              else
+                  qWarning() << "Unkonwn value for debuginterface:" << value;
         }
     }
     f.close();
@@ -160,6 +187,7 @@ static bool removeDefault()
             fprintf(stderr, "Could not remove default application.\n");
             return false;
         }
+        sync();
     }
     return true;
 }
@@ -180,6 +208,7 @@ static bool makeDefault(const QString &filepath)
         fprintf(stderr, "Could not link default application.\n");
         return false;
     }
+    sync();
     return true;
 }
 
@@ -245,6 +274,9 @@ int main(int argc, char **argv)
                   return 1;
         } else if (arg == "--print-debug") {
             config.flags |= Config::PrintDebugMessages;
+        } else if (arg == "--version") {
+            printf("Appcontroller version: " GIT_VERSION "\nGit revision: " GIT_HASH "\n");
+            return 0;
         } else {
             args.prepend(arg);
             break;
@@ -283,7 +315,11 @@ int main(int argc, char **argv)
     defaultArgs.append(args);
 
     if (useGDB) {
-        defaultArgs.push_front("localhost:" + QString::number(gdbDebugPort));
+        QString interface;
+        if (config.debugInterface == Config::LocalDebugInterface)
+            interface = QLatin1String("localhost");
+
+        defaultArgs.push_front(interface + ":" + QString::number(gdbDebugPort));
         defaultArgs.push_front("gdbserver");
     }
 
