@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2013 Digia Plc
+** Copyright (C) 2014 Digia Plc
 ** All rights reserved.
 ** For any questions to Digia, please use contact form at http://qt.digia.com
 **
@@ -187,6 +187,7 @@ static bool removeDefault()
             fprintf(stderr, "Could not remove default application.\n");
             return false;
         }
+        sync();
     }
     return true;
 }
@@ -207,6 +208,7 @@ static bool makeDefault(const QString &filepath)
         fprintf(stderr, "Could not link default application.\n");
         return false;
     }
+    sync();
     return true;
 }
 
