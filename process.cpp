@@ -171,9 +171,9 @@ void Process::error(QProcess::ProcessError error)
 void Process::finished(int exitCode, QProcess::ExitStatus exitStatus)
 {
     if (exitStatus == QProcess::NormalExit)
-        qDebug() << "Process exited with exitcode" << exitCode;
+        printf("Process exited with exit code %d\n", exitCode);
     else
-        qDebug() << "Process stopped";
+        printf("Process stopped\n");
 }
 
 void Process::startup(QStringList args)
@@ -212,7 +212,7 @@ void Process::start(const QStringList &args)
 void Process::stop()
 {
     if (mProcess->state() == QProcess::QProcess::NotRunning) {
-        qDebug() << "No process running";
+        printf("No process running\n");
         qApp->exit();
         return;
     }
