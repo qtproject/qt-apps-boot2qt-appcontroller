@@ -150,7 +150,7 @@ void Process::error(QProcess::ProcessError error)
         analyzeBinary(mBinary);
         break;
     case QProcess::Crashed:
-        printf("Crashed\n");
+        printf("Application crashed: %s\n", qPrintable(mBinary));
         break;
     case QProcess::Timedout:
         printf("Timedout\n");
