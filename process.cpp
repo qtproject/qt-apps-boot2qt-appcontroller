@@ -222,12 +222,14 @@ void Process::stop()
         if (kill(mDebuggee, SIGKILL) != 0)
             perror("Could not kill debugee");
     }
-    if (kill(-getpid(), SIGTERM) != 0)
-        perror("Could not kill process group");
 
     mProcess->terminate();
     if (!mProcess->waitForFinished())
         mProcess->kill();
+
+    // Just for completeness terminate the whole group
+    // in case the application has started subprocesses
+    ::kill(-getpid(), SIGTERM);
 }
 
 void Process::incomingConnection(int i)
