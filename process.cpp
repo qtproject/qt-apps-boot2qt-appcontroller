@@ -88,11 +88,11 @@ Process::Process()
     , mDebug(false)
 {
     mProcess->setProcessChannelMode(QProcess::SeparateChannels);
-    connect(mProcess, SIGNAL(readyReadStandardError()), this, SLOT(readyReadStandardError()));
-    connect(mProcess, SIGNAL(readyReadStandardOutput()), this, SLOT(readyReadStandardOutput()));
-    connect(mProcess, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finished(int, QProcess::ExitStatus)));
-    connect(mProcess, SIGNAL(error(QProcess::ProcessError)), this, SLOT(error(QProcess::ProcessError)));
-    connect(mProcess, SIGNAL(finished(int, QProcess::ExitStatus)), qApp, SLOT(quit()));
+    connect(mProcess, &QProcess::readyReadStandardError, this, &Process::readyReadStandardError);
+    connect(mProcess, &QProcess::readyReadStandardOutput, this, &Process::readyReadStandardOutput);
+    connect(mProcess, (void (QProcess::*)(int, QProcess::ExitStatus))&QProcess::finished, this, &Process::finished);
+    connect(mProcess, (void (QProcess::*)(QProcess::ProcessError))&QProcess::error, this, &Process::error);
+    connect(mProcess, (void (QProcess::*)(int, QProcess::ExitStatus))&QProcess::finished, qApp, &QCoreApplication::quit);
 
     if (pipe2(pipefd, O_CLOEXEC) != 0)
         qWarning("Could not create pipe");
@@ -150,7 +150,7 @@ void Process::error(QProcess::ProcessError error)
         analyzeBinary(mBinary);
         break;
     case QProcess::Crashed:
-        printf("Crashed\n");
+        printf("Application crashed: %s\n", qPrintable(mBinary));
         break;
     case QProcess::Timedout:
         printf("Timedout\n");
@@ -222,12 +222,14 @@ void Process::stop()
         if (kill(mDebuggee, SIGKILL) != 0)
             perror("Could not kill debugee");
     }
-    if (kill(-getpid(), SIGTERM) != 0)
-        perror("Could not kill process group");
 
     mProcess->terminate();
     if (!mProcess->waitForFinished())
         mProcess->kill();
+
+    // Just for completeness terminate the whole group
+    // in case the application has started subprocesses
+    ::kill(-getpid(), SIGTERM);
 }
 
 void Process::incomingConnection(int i)
@@ -238,7 +240,7 @@ void Process::incomingConnection(int i)
 
 void Process::setSocketNotifier(QSocketNotifier *s)
 {
-    connect(s, SIGNAL(activated(int)), this, SLOT(incomingConnection(int)));
+    connect(s, &QSocketNotifier::activated, this, &Process::incomingConnection);
 }
 
 void Process::setConfig(const Config &config)
