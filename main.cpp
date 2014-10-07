@@ -230,8 +230,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    ::setpgid(0,0); // must be called before setsid()
-    ::setsid();
     Config config = parseConfigFile();
 
     while (!args.isEmpty()) {
@@ -249,6 +247,8 @@ int main(int argc, char **argv)
             }
         } else if (arg == "--debug-gdb") {
             useGDB = true;
+            setpgid(0,0); // must be called before setsid()
+            setsid();
         } else if (arg == "--debug-qml") {
             useQML = true;
         } else if (arg == "--stop") {
