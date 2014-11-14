@@ -2,7 +2,7 @@
 **
 ** Copyright (C) 2014 Digia Plc
 ** All rights reserved.
-** For any questions to Digia, please use contact form at http://qt.digia.com
+** For any questions to Digia, please use contact form at http://www.qt.io
 **
 ** This file is part of QtEnterprise Embedded.
 **
@@ -12,7 +12,7 @@
 ** a written agreement between you and Digia.
 **
 ** If you have questions regarding the use of this file, please use
-** contact form at http://qt.digia.com
+** contact form at http://www.qt.io
 **
 ****************************************************************************/
 
@@ -222,14 +222,12 @@ void Process::stop()
         if (kill(mDebuggee, SIGKILL) != 0)
             perror("Could not kill debugee");
     }
+    if (kill(-getpid(), SIGTERM) != 0)
+        perror("Could not kill process group");
 
     mProcess->terminate();
     if (!mProcess->waitForFinished())
         mProcess->kill();
-
-    // Just for completeness terminate the whole group
-    // in case the application has started subprocesses
-    ::kill(-getpid(), SIGTERM);
 }
 
 void Process::incomingConnection(int i)

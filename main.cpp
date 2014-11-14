@@ -2,7 +2,7 @@
 **
 ** Copyright (C) 2014 Digia Plc
 ** All rights reserved.
-** For any questions to Digia, please use contact form at http://qt.digia.com
+** For any questions to Digia, please use contact form at http://www.qt.io
 **
 ** This file is part of QtEnterprise Embedded.
 **
@@ -12,7 +12,7 @@
 ** a written agreement between you and Digia.
 **
 ** If you have questions regarding the use of this file, please use
-** contact form at http://qt.digia.com
+** contact form at http://www.qt.io
 **
 ****************************************************************************/
 
@@ -230,8 +230,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    ::setpgid(0,0); // must be called before setsid()
-    ::setsid();
     Config config = parseConfigFile();
 
     while (!args.isEmpty()) {
@@ -249,6 +247,8 @@ int main(int argc, char **argv)
             }
         } else if (arg == "--debug-gdb") {
             useGDB = true;
+            setpgid(0,0); // must be called before setsid()
+            setsid();
         } else if (arg == "--debug-qml") {
             useQML = true;
         } else if (arg == "--stop") {
