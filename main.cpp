@@ -223,6 +223,7 @@ int main(int argc, char **argv)
     quint16 gdbDebugPort = 0;
     bool useGDB = false;
     bool useQML = false;
+    bool fireAndForget = false;
     Utils::PortList range;
 
     if (args.isEmpty()) {
@@ -254,6 +255,8 @@ int main(int argc, char **argv)
         } else if (arg == "--stop") {
             stop();
             return 0;
+        } else if (arg == "--launch") {
+            fireAndForget = true;
         } else if (arg == "--show-platform") {
             printf("base:%s\nplatform:%s\n",
                 config.base.toLocal8Bit().constData(),
@@ -323,7 +326,7 @@ int main(int argc, char **argv)
         defaultArgs.push_front("gdbserver");
     }
 
-    if (createServerSocket() != 0) {
+    if (!fireAndForget && createServerSocket() != 0) {
         fprintf(stderr, "Could not create serversocket\n");
         return 1;
     }
@@ -338,7 +341,8 @@ int main(int argc, char **argv)
     process.setSocketNotifier(new QSocketNotifier(serverSocket, QSocketNotifier::Read, &process));
     process.start(defaultArgs);
     app.exec();
-    close(serverSocket);
+    if (!fireAndForget)
+        close(serverSocket);
     return 0;
 }
 
