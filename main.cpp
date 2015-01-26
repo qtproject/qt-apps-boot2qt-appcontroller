@@ -29,6 +29,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <sys/wait.h>
 
 #define PID_FILE "/data/user/.appcontroller"
 
@@ -224,6 +226,7 @@ int main(int argc, char **argv)
     bool useGDB = false;
     bool useQML = false;
     bool fireAndForget = false;
+    bool detach = false;
     Utils::PortList range;
 
     if (args.isEmpty()) {
@@ -280,6 +283,8 @@ int main(int argc, char **argv)
         } else if (arg == "--version") {
             printf("Appcontroller version: " GIT_VERSION "\nGit revision: " GIT_HASH "\n");
             return 0;
+        } else if (arg == "--detach") {
+            detach = true;
         } else {
             args.prepend(arg);
             break;
@@ -293,6 +298,11 @@ int main(int argc, char **argv)
 
     if ((useGDB || useQML) && !range.hasMore()) {
         fprintf(stderr, "--port-range is mandatory\n");
+        return 1;
+    }
+
+    if (detach && (useGDB || useQML)) {
+        fprintf(stderr, "Detached debugging not possible. --detach and one of --useGDB, --useQML must not be used together.\n");
         return 1;
     }
 
@@ -329,6 +339,38 @@ int main(int argc, char **argv)
     if (!fireAndForget && createServerSocket() != 0) {
         fprintf(stderr, "Could not create serversocket\n");
         return 1;
+    }
+
+    // daemonize
+    if (detach) {
+        pid_t rc = fork();
+        if (rc == -1) {
+            printf("fork failed\n");
+            return -1;
+        } else if (rc > 0) {
+            // parent
+            ::wait(NULL); // wait for the child to exit
+            return 0;
+        }
+
+        setsid();
+        chdir("/");
+        signal(SIGHUP, SIG_IGN);
+
+        // child
+        int devnull = open("/dev/null", O_RDWR);
+        if (devnull < 0)
+            return -1;
+        dup2(devnull, 0); // Replace file descriptors
+        dup2(devnull, 1);
+        dup2(devnull, 2);
+        rc = fork();
+        if (rc == -1)
+            return -1;
+        else if (rc > 0)
+            return 0;
+
+        // child
     }
 
     // Create QCoreApplication after parameter parsing to prevent printing evaluation
