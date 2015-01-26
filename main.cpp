@@ -44,6 +44,25 @@ static int serverSocket = -1;
 
 static const char socketPath[] = "#Boot2Qt_appcontroller";
 
+static void usage()
+{
+    printf("appcontroller [--debug-gdb] [--debug-qml] [--port-range <range>] [--stop] [--launch] [--show-platfrom] [--make-default] [--remove-default] [--print-debug] [--version] [--detach] [executable] [arguments]\n"
+           "\n"
+           "--port-range <range> Port range to use for debugging connections\n"
+           "--debug-gdb          Start GDB debugging\n"
+           "--debug-qml          Start QML debugging\n"
+           "--stop               Stop already running application\n"
+           "--launch             Start application without stopping already running application\n"
+           "--show-platform      Show platform information\n"
+           "--make-default       Make this application the default on boot\n"
+           "--remove-default     Restore the default application\n"
+           "--print-debug        Print debug messages to stdout on Android\n"
+           "--version            Print version information\n"
+           "--detach             Start application as usual, then go into background\n"
+           "--help, -h, -help    Show this help\n"
+          );
+}
+
 static void setupAddressStruct(struct sockaddr_un &address)
 {
     address.sun_family = AF_UNIX;
@@ -285,6 +304,9 @@ int main(int argc, char **argv)
             return 0;
         } else if (arg == "--detach") {
             detach = true;
+        } else if (arg == "--help" || arg == "-help" || arg == "-h") {
+            usage();
+            return 0;
         } else {
             args.prepend(arg);
             break;
