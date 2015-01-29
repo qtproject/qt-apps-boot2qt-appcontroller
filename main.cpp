@@ -18,6 +18,7 @@
 
 #include "process.h"
 #include "portlist.h"
+#include "perfprocesshandler.h"
 #include <QCoreApplication>
 #include <QTcpServer>
 #include <QProcess>
@@ -144,15 +145,19 @@ static void stop()
     connectSocket();
 }
 
+static int openServer(QTcpServer *s, Utils::PortList &range)
+{
+    while (range.hasMore()) {
+        if (s->listen(QHostAddress::Any, range.getNext()))
+            return s->serverPort();
+    }
+    return -1;
+}
+
 static int findFirstFreePort(Utils::PortList &range)
 {
     QTcpServer s;
-
-    while (range.hasMore()) {
-        if (s.listen(QHostAddress::Any, range.getNext()))
-            return s.serverPort();
-    }
-    return -1;
+    return openServer(&s, range);
 }
 
 static Config parseConfigFile()
@@ -244,6 +249,7 @@ int main(int argc, char **argv)
     quint16 gdbDebugPort = 0;
     bool useGDB = false;
     bool useQML = false;
+    QStringList perfParams;
     bool fireAndForget = false;
     bool detach = false;
     Utils::PortList range;
@@ -274,6 +280,14 @@ int main(int argc, char **argv)
             setsid();
         } else if (arg == "--debug-qml") {
             useQML = true;
+        } else if (arg == "--profile-perf") {
+            if (args.isEmpty() ||
+                    (perfParams = args.takeFirst().split(QLatin1Char(','))).length() != 3) {
+                fprintf(stderr, "--profile-perf requires a parameter specification of"
+                                " \"<method>,<size>,<freq>\" where <method> can be \"fp\" or "
+                                " \"dwarf\", amd <size> and <freq> are integers.");
+                return 1;
+            }
         } else if (arg == "--stop") {
             stop();
             return 0;
@@ -403,7 +417,28 @@ int main(int argc, char **argv)
     if (gdbDebugPort)
         process.setDebug();
     process.setSocketNotifier(new QSocketNotifier(serverSocket, QSocketNotifier::Read, &process));
-    process.start(defaultArgs);
+
+    if (perfParams.length() == 3) {
+        QStringList allArgs;
+        allArgs << QLatin1String("perf") << QLatin1String("record") << QLatin1String("--call-graph");
+        if (perfParams[0] == QLatin1String("dwarf"))
+            allArgs << QString(QLatin1String("dwarf,%1")).arg(perfParams[1]);
+        else
+            allArgs << perfParams[0];
+        allArgs << QLatin1String("-F") << perfParams[2] << QLatin1String("-o") << QLatin1String("-")
+                << QLatin1String("--") << defaultArgs.join(QLatin1Char(' '));
+
+        PerfProcessHandler *server = new PerfProcessHandler(&process, allArgs);
+        int port = openServer(server->server(), range);
+        if (port < 0) {
+            fprintf(stderr, "Could not find an unused port in range\n");
+            return 1;
+        }
+        printf("AppController: Going to wait for perf connection on port %d...\n", port);
+    } else {
+        process.start(defaultArgs);
+    }
+
     app.exec();
     if (!fireAndForget)
         close(serverSocket);

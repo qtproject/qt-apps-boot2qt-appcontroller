@@ -16,9 +16,13 @@
 **
 ****************************************************************************/
 
+#ifndef PROCESS_H
+#define PROCESS_H
+
 #include <QObject>
 #include <QProcess>
 #include <QMap>
+#include <QTcpServer>
 
 class QSocketNotifier;
 
@@ -53,6 +57,7 @@ public:
     void setSocketNotifier(QSocketNotifier*);
     void setDebug();
     void setConfig(const Config &);
+    void setStdoutFd(qintptr stdoutFd);
 public slots:
     void stop();
 private slots:
@@ -62,6 +67,7 @@ private slots:
     void error(QProcess::ProcessError);
     void incomingConnection(int);
 private:
+    void forwardProcessOutput(qintptr fd, const QByteArray &data);
     void startup(QStringList);
     QProcessEnvironment interactiveProcessEnvironment() const;
     QProcess *mProcess;
@@ -69,4 +75,7 @@ private:
     bool mDebug;
     Config mConfig;
     QString mBinary;
+    qintptr mStdoutFd;
 };
+
+#endif // PROCESS_H
