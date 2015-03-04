@@ -122,6 +122,18 @@ void Process::forwardProcessOutput(qintptr fd, const QByteArray &data)
     while (size > 0) {
         int written = write(fd, constData, size);
         if (written == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                fd_set outputFdSet;
+                FD_ZERO(&outputFdSet);
+                FD_SET(fd, &outputFdSet);
+                fd_set inputFdSet;
+                FD_ZERO(&inputFdSet);
+                FD_SET(pipefd[0], &inputFdSet);
+                if (select(qMax(fd, pipefd[0]) + 1, &inputFdSet, &outputFdSet, NULL, NULL) > 0 &&
+                        !FD_ISSET(pipefd[0], &inputFdSet))
+                    continue;
+                // else fprintf below will output the appropriate errno
+            }
             fprintf(stderr, "Cannot forward application output: %d - %s\n", errno, strerror(errno));
             qApp->quit();
             break;
