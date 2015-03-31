@@ -238,6 +238,30 @@ static bool makeDefault(const QString &filepath)
     return true;
 }
 
+static QStringList extractPerfParams(QString s)
+{
+    QStringList lst;
+    int h = 0;
+    int i = 0;
+    for (;;) {
+        i = s.indexOf(QLatin1Char(','), i);
+        if (i >= 0) {
+            if (i + 1 < s.length() && s.at(i + 1) == QLatin1Char(',')) {
+                s.remove(i, 1);
+                i++;
+                continue;
+            }
+            lst << s.mid(h, i - h);
+            i++;
+            h = i;
+        } else {
+            lst << s.mid(h);
+            break;
+        }
+    }
+    return lst;
+}
+
 int main(int argc, char **argv)
 {
     // Save arguments before QCoreApplication handles them
@@ -281,13 +305,14 @@ int main(int argc, char **argv)
         } else if (arg == "--debug-qml") {
             useQML = true;
         } else if (arg == "--profile-perf") {
-            if (args.isEmpty() ||
-                    (perfParams = args.takeFirst().split(QLatin1Char(','))).length() != 3) {
-                fprintf(stderr, "--profile-perf requires a parameter specification of"
-                                " \"<method>,<size>,<freq>\" where <method> can be \"fp\" or "
-                                " \"dwarf\", amd <size> and <freq> are integers.");
+            if (args.isEmpty()) {
+                fprintf(stderr, "--profile-perf requires comma-separated list of parameters that "
+                                "get passed to \"perf record\". Arguments \"-o -\" are "
+                                "automatically appended to capture the output as stream. "
+                                "Escape commas by doubling them.");
                 return 1;
             }
+            perfParams = extractPerfParams(args.takeFirst());
         } else if (arg == "--stop") {
             stop();
             return 0;
@@ -418,14 +443,10 @@ int main(int argc, char **argv)
         process.setDebug();
     process.setSocketNotifier(new QSocketNotifier(serverSocket, QSocketNotifier::Read, &process));
 
-    if (perfParams.length() == 3) {
+    if (!perfParams.isEmpty()) {
         QStringList allArgs;
-        allArgs << QLatin1String("perf") << QLatin1String("record") << QLatin1String("--call-graph");
-        if (perfParams[0] == QLatin1String("dwarf"))
-            allArgs << QString(QLatin1String("dwarf,%1")).arg(perfParams[1]);
-        else
-            allArgs << perfParams[0];
-        allArgs << QLatin1String("-F") << perfParams[2] << QLatin1String("-o") << QLatin1String("-")
+        allArgs << QLatin1String("perf") << QLatin1String("record")
+                << perfParams << QLatin1String("-o") << QLatin1String("-")
                 << QLatin1String("--") << defaultArgs.join(QLatin1Char(' '));
 
         PerfProcessHandler *server = new PerfProcessHandler(&process, allArgs);
