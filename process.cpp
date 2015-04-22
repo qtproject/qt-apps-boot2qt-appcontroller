@@ -4,7 +4,7 @@
 ** All rights reserved.
 ** For any questions to Digia, please use contact form at http://www.qt.io
 **
-** This file is part of QtEnterprise Embedded.
+** This file is part of Qt Enterprise Embedded.
 **
 ** Licensees holding valid Qt Enterprise licenses may use this file in
 ** accordance with the Qt Enterprise License Agreement provided with the
@@ -26,6 +26,8 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <QFileInfo>
+#include <QTcpSocket>
+#include <errno.h>
 
 static int pipefd[2];
 
@@ -86,6 +88,7 @@ Process::Process()
     , mProcess(new QProcess(this))
     , mDebuggee(0)
     , mDebug(false)
+    , mStdoutFd(1)
 {
     mProcess->setProcessChannelMode(QProcess::SeparateChannels);
     connect(mProcess, &QProcess::readyReadStandardError, this, &Process::readyReadStandardError);
@@ -112,13 +115,41 @@ Process::~Process()
     close(pipefd[1]);
 }
 
-void Process::readyReadStandardOutput()
+void Process::forwardProcessOutput(qintptr fd, const QByteArray &data)
 {
-    QByteArray b = mProcess->readAllStandardOutput();
-    write(1, b.constData(), b.size());
+    const char *constData = data.constData();
+    int size = data.size();
+    while (size > 0) {
+        int written = write(fd, constData, size);
+        if (written == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                fd_set outputFdSet;
+                FD_ZERO(&outputFdSet);
+                FD_SET(fd, &outputFdSet);
+                fd_set inputFdSet;
+                FD_ZERO(&inputFdSet);
+                FD_SET(pipefd[0], &inputFdSet);
+                if (select(qMax(fd, pipefd[0]) + 1, &inputFdSet, &outputFdSet, NULL, NULL) > 0 &&
+                        !FD_ISSET(pipefd[0], &inputFdSet))
+                    continue;
+                // else fprintf below will output the appropriate errno
+            }
+            fprintf(stderr, "Cannot forward application output: %d - %s\n", errno, strerror(errno));
+            qApp->quit();
+            break;
+        }
+        size -= written;
+        constData += written;
+    }
 
     if (mConfig.flags.testFlag(Config::PrintDebugMessages))
-        qDebug() << b;
+        qDebug() << data;
+}
+
+
+void Process::readyReadStandardOutput()
+{
+    forwardProcessOutput(mStdoutFd, mProcess->readAllStandardOutput());
 }
 
 void Process::readyReadStandardError()
@@ -131,10 +162,7 @@ void Process::readyReadStandardError()
         }
         mDebug = false; // only search once
     }
-    write(2, b.constData(), b.size());
-
-    if (mConfig.flags.testFlag(Config::PrintDebugMessages))
-        qDebug() << b;
+    forwardProcessOutput(2, b);
 }
 
 void Process::setDebug()
@@ -246,6 +274,11 @@ void Process::setConfig(const Config &config)
     mConfig = config;
 }
 
+void Process::setStdoutFd(qintptr stdoutFd)
+{
+    mStdoutFd = stdoutFd;
+}
+
 QProcessEnvironment Process::interactiveProcessEnvironment() const
 {
     QProcessEnvironment env;
@@ -311,4 +344,3 @@ QProcessEnvironment Process::interactiveProcessEnvironment() const
 
     return env;
 }
-

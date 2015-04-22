@@ -4,7 +4,7 @@
 ** All rights reserved.
 ** For any questions to Digia, please use contact form at http://www.qt.io
 **
-** This file is part of QtEnterprise Embedded.
+** This file is part of Qt Enterprise Embedded.
 **
 ** Licensees holding valid Qt Enterprise licenses may use this file in
 ** accordance with the Qt Enterprise License Agreement provided with the
@@ -18,6 +18,7 @@
 
 #include "process.h"
 #include "portlist.h"
+#include "perfprocesshandler.h"
 #include <QCoreApplication>
 #include <QTcpServer>
 #include <QProcess>
@@ -29,6 +30,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <sys/wait.h>
 
 #define PID_FILE "/data/user/.appcontroller"
 
@@ -41,6 +44,25 @@
 static int serverSocket = -1;
 
 static const char socketPath[] = "#Boot2Qt_appcontroller";
+
+static void usage()
+{
+    printf("appcontroller [--debug-gdb] [--debug-qml] [--port-range <range>] [--stop] [--launch] [--show-platfrom] [--make-default] [--remove-default] [--print-debug] [--version] [--detach] [executable] [arguments]\n"
+           "\n"
+           "--port-range <range> Port range to use for debugging connections\n"
+           "--debug-gdb          Start GDB debugging\n"
+           "--debug-qml          Start QML debugging\n"
+           "--stop               Stop already running application\n"
+           "--launch             Start application without stopping already running application\n"
+           "--show-platform      Show platform information\n"
+           "--make-default       Make this application the default on boot\n"
+           "--remove-default     Restore the default application\n"
+           "--print-debug        Print debug messages to stdout on Android\n"
+           "--version            Print version information\n"
+           "--detach             Start application as usual, then go into background\n"
+           "--help, -h, -help    Show this help\n"
+          );
+}
 
 static void setupAddressStruct(struct sockaddr_un &address)
 {
@@ -123,15 +145,19 @@ static void stop()
     connectSocket();
 }
 
+static int openServer(QTcpServer *s, Utils::PortList &range)
+{
+    while (range.hasMore()) {
+        if (s->listen(QHostAddress::Any, range.getNext()))
+            return s->serverPort();
+    }
+    return -1;
+}
+
 static int findFirstFreePort(Utils::PortList &range)
 {
     QTcpServer s;
-
-    while (range.hasMore()) {
-        if (s.listen(QHostAddress::Any, range.getNext()))
-            return s.serverPort();
-    }
-    return -1;
+    return openServer(&s, range);
 }
 
 static Config parseConfigFile()
@@ -212,6 +238,30 @@ static bool makeDefault(const QString &filepath)
     return true;
 }
 
+static QStringList extractPerfParams(QString s)
+{
+    QStringList lst;
+    int h = 0;
+    int i = 0;
+    for (;;) {
+        i = s.indexOf(QLatin1Char(','), i);
+        if (i >= 0) {
+            if (i + 1 < s.length() && s.at(i + 1) == QLatin1Char(',')) {
+                s.remove(i, 1);
+                i++;
+                continue;
+            }
+            lst << s.mid(h, i - h);
+            i++;
+            h = i;
+        } else {
+            lst << s.mid(h);
+            break;
+        }
+    }
+    return lst;
+}
+
 int main(int argc, char **argv)
 {
     // Save arguments before QCoreApplication handles them
@@ -223,7 +273,9 @@ int main(int argc, char **argv)
     quint16 gdbDebugPort = 0;
     bool useGDB = false;
     bool useQML = false;
+    QStringList perfParams;
     bool fireAndForget = false;
+    bool detach = false;
     Utils::PortList range;
 
     if (args.isEmpty()) {
@@ -252,6 +304,15 @@ int main(int argc, char **argv)
             setsid();
         } else if (arg == "--debug-qml") {
             useQML = true;
+        } else if (arg == "--profile-perf") {
+            if (args.isEmpty()) {
+                fprintf(stderr, "--profile-perf requires comma-separated list of parameters that "
+                                "get passed to \"perf record\". Arguments \"-o -\" are "
+                                "automatically appended to capture the output as stream. "
+                                "Escape commas by doubling them.");
+                return 1;
+            }
+            perfParams = extractPerfParams(args.takeFirst());
         } else if (arg == "--stop") {
             stop();
             return 0;
@@ -280,6 +341,11 @@ int main(int argc, char **argv)
         } else if (arg == "--version") {
             printf("Appcontroller version: " GIT_VERSION "\nGit revision: " GIT_HASH "\n");
             return 0;
+        } else if (arg == "--detach") {
+            detach = true;
+        } else if (arg == "--help" || arg == "-help" || arg == "-h") {
+            usage();
+            return 0;
         } else {
             args.prepend(arg);
             break;
@@ -293,6 +359,11 @@ int main(int argc, char **argv)
 
     if ((useGDB || useQML) && !range.hasMore()) {
         fprintf(stderr, "--port-range is mandatory\n");
+        return 1;
+    }
+
+    if (detach && (useGDB || useQML)) {
+        fprintf(stderr, "Detached debugging not possible. --detach and one of --useGDB, --useQML must not be used together.\n");
         return 1;
     }
 
@@ -331,6 +402,38 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // daemonize
+    if (detach) {
+        pid_t rc = fork();
+        if (rc == -1) {
+            printf("fork failed\n");
+            return -1;
+        } else if (rc > 0) {
+            // parent
+            ::wait(NULL); // wait for the child to exit
+            return 0;
+        }
+
+        setsid();
+        chdir("/");
+        signal(SIGHUP, SIG_IGN);
+
+        // child
+        int devnull = open("/dev/null", O_RDWR);
+        if (devnull < 0)
+            return -1;
+        dup2(devnull, 0); // Replace file descriptors
+        dup2(devnull, 1);
+        dup2(devnull, 2);
+        rc = fork();
+        if (rc == -1)
+            return -1;
+        else if (rc > 0)
+            return 0;
+
+        // child
+    }
+
     // Create QCoreApplication after parameter parsing to prevent printing evaluation
     // message to terminal before QtCreator has parsed the output.
     QCoreApplication app(argc, argv);
@@ -339,7 +442,24 @@ int main(int argc, char **argv)
     if (gdbDebugPort)
         process.setDebug();
     process.setSocketNotifier(new QSocketNotifier(serverSocket, QSocketNotifier::Read, &process));
-    process.start(defaultArgs);
+
+    if (!perfParams.isEmpty()) {
+        QStringList allArgs;
+        allArgs << QLatin1String("perf") << QLatin1String("record")
+                << perfParams << QLatin1String("-o") << QLatin1String("-")
+                << QLatin1String("--") << defaultArgs.join(QLatin1Char(' '));
+
+        PerfProcessHandler *server = new PerfProcessHandler(&process, allArgs);
+        int port = openServer(server->server(), range);
+        if (port < 0) {
+            fprintf(stderr, "Could not find an unused port in range\n");
+            return 1;
+        }
+        printf("AppController: Going to wait for perf connection on port %d...\n", port);
+    } else {
+        process.start(defaultArgs);
+    }
+
     app.exec();
     if (!fireAndForget)
         close(serverSocket);

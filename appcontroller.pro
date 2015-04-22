@@ -3,11 +3,13 @@ QT+=network
 HEADERS=\
         process.h \
         portlist.h \
+        perfprocesshandler.h
 
 SOURCES=\
         main.cpp \
         process.cpp \
         portlist.cpp \
+        perfprocesshandler.cpp
 
 android {
     target.path = $$[INSTALL_ROOT]/system/bin
