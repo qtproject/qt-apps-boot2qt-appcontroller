@@ -37,7 +37,7 @@ struct Config {
         PublicDebugInterface
     };
 
-    Config() : flags(0) { }
+    Config() : platform("unknown"), flags(0), debugInterface(LocalDebugInterface) { }
 
     QString base;
     QString platform;

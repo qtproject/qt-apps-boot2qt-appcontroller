@@ -20,6 +20,7 @@
 #include "portlist.h"
 #include "perfprocesshandler.h"
 #include <QCoreApplication>
+#include <QDir>
 #include <QTcpServer>
 #include <QProcess>
 #include <errno.h>
@@ -160,21 +161,13 @@ static int findFirstFreePort(Utils::PortList &range)
     return openServer(&s, range);
 }
 
-static Config parseConfigFile()
+static bool parseConfigFile(Config *config, const QString &fileName)
 {
-    Config config;
-    config.base = config.platform = QLatin1String("unknown");
-    config.debugInterface = Config::LocalDebugInterface;
-
-#ifdef Q_OS_ANDROID
-    QFile f("/system/bin/appcontroller.conf");
-#else
-    QFile f("/etc/appcontroller.conf");
-#endif
+    QFile f(fileName);
 
     if (!f.open(QFile::ReadOnly)) {
-        fprintf(stderr, "Could not read config file.\n");
-        return config;
+        fprintf(stderr, "Could not read config file: %s\n", qPrintable(fileName));
+        return false;
     }
 
     while (!f.atEnd()) {
@@ -185,26 +178,43 @@ static Config parseConfigFile()
                 if (index < 2) {
                     // ignore
                 } else
-                    config.env[sub.left(index)] = sub.mid(index+1);
+                    config->env[sub.left(index)] = sub.mid(index+1);
         } else if (line.startsWith("append=")) {
-              config.args += line.mid(7).simplified();
+              config->args += line.mid(7).simplified();
         } else if (line.startsWith("base=")) {
-              config.base = line.mid(5).simplified();
+              config->base = line.mid(5).simplified();
         } else if (line.startsWith("platform=")) {
-              config.platform = line.mid(9).simplified();
+              config->platform = line.mid(9).simplified();
         } else if (line.startsWith("debugInterface=")) {
               const QString value = line.mid(15).simplified();
               if (value == "local")
-                  config.debugInterface = Config::LocalDebugInterface;
+                  config->debugInterface = Config::LocalDebugInterface;
               else if (value == "public")
-                  config.debugInterface = Config::PublicDebugInterface;
+                  config->debugInterface = Config::PublicDebugInterface;
               else
                   qWarning() << "Unkonwn value for debuginterface:" << value;
         }
     }
     f.close();
-    return config;
+    return true;
 }
+
+static bool parseConfigFileDirectory(Config *config, const QString &dirName)
+{
+    QDir d(dirName);
+    if (d.exists()) {
+        foreach (const QString &fileName, d.entryList(QDir::Files)) {
+            const QString file(d.absoluteFilePath(fileName));
+
+            if (!parseConfigFile(config, file)) {
+                fprintf(stderr, "Failed to parse config file: %s\n", qPrintable(file));
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 
 static bool removeDefault()
 {
@@ -283,7 +293,15 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    Config config = parseConfigFile();
+    Config config;
+    if (!parseConfigFile(&config, "/etc/appcontroller.conf")) {
+        fprintf(stderr, "Failed to parse config file.\n");
+        return 1;
+    }
+
+    // Parse temporary config files
+    parseConfigFileDirectory(&config, "/var/lib/b2qt/appcontroller.conf.d");
+    parseConfigFileDirectory(&config, "/tmp/b2qt/appcontroller.conf.d");
 
     while (!args.isEmpty()) {
         const QString arg(args.takeFirst());
