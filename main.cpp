@@ -62,6 +62,7 @@ static void usage()
            "--print-debug        Print debug messages to stdout on Android\n"
            "--version            Print version information\n"
            "--detach             Start application as usual, then go into background\n"
+           "--restart            Restart the current running application\n"
            "--help, -h, -help    Show this help\n"
           );
 }
@@ -158,6 +159,11 @@ static void stop()
     connectSocket("stop");
 }
 
+static void restart()
+{
+    connectSocket("restart");
+}
+
 static int openServer(QTcpServer *s, Utils::PortList &range)
 {
     while (range.hasMore()) {
@@ -173,7 +179,7 @@ static int findFirstFreePort(Utils::PortList &range)
     return openServer(&s, range);
 }
 
-static bool parseConfigFile(Config *config, const QString &fileName)
+bool parseConfigFile(Config *config, const QString &fileName)
 {
     QFile f(fileName);
 
@@ -211,7 +217,7 @@ static bool parseConfigFile(Config *config, const QString &fileName)
     return true;
 }
 
-static bool parseConfigFileDirectory(Config *config, const QString &dirName)
+bool parseConfigFileDirectory(Config *config, const QString &dirName)
 {
     QDir d(dirName);
     if (d.exists()) {
@@ -226,7 +232,6 @@ static bool parseConfigFileDirectory(Config *config, const QString &dirName)
     }
     return true;
 }
-
 
 static bool removeDefault()
 {
@@ -309,10 +314,6 @@ int main(int argc, char **argv)
     if (!parseConfigFile(&config, "/etc/appcontroller.conf"))
         fprintf(stderr, "Failed to parse config file.\n");
 
-    // Parse temporary config files
-    parseConfigFileDirectory(&config, "/var/lib/b2qt/appcontroller.conf.d");
-    parseConfigFileDirectory(&config, "/tmp/b2qt/appcontroller.conf.d");
-
     while (!args.isEmpty()) {
         const QString arg(args.takeFirst());
 
@@ -371,6 +372,9 @@ int main(int argc, char **argv)
             return 0;
         } else if (arg == "--detach") {
             detach = true;
+        } else if (arg == "--restart") {
+            restart();
+            return 0;
         } else if (arg == "--help" || arg == "-help" || arg == "-h") {
             usage();
             return 0;

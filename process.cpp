@@ -30,6 +30,7 @@
 #include <QTcpSocket>
 #include <errno.h>
 
+bool parseConfigFileDirectory(Config *config, const QString &dirName);
 static int pipefd[2];
 
 static void signalhandler(int)
@@ -90,13 +91,13 @@ Process::Process()
     , mDebuggee(0)
     , mDebug(false)
     , mStdoutFd(1)
+    , mBeingRestarted(false)
 {
     mProcess->setProcessChannelMode(QProcess::SeparateChannels);
     connect(mProcess, &QProcess::readyReadStandardError, this, &Process::readyReadStandardError);
     connect(mProcess, &QProcess::readyReadStandardOutput, this, &Process::readyReadStandardOutput);
     connect(mProcess, (void (QProcess::*)(int, QProcess::ExitStatus))&QProcess::finished, this, &Process::finished);
     connect(mProcess, (void (QProcess::*)(QProcess::ProcessError))&QProcess::error, this, &Process::error);
-    connect(mProcess, (void (QProcess::*)(int, QProcess::ExitStatus))&QProcess::finished, qApp, &QCoreApplication::quit);
 
     if (pipe2(pipefd, O_CLOEXEC) != 0)
         qWarning("Could not create pipe");
@@ -195,7 +196,8 @@ void Process::error(QProcess::ProcessError error)
         printf("Unknown error\n");
         break;
     }
-    qApp->quit();
+    if (!mBeingRestarted)
+        qApp->quit();
 }
 
 void Process::finished(int exitCode, QProcess::ExitStatus exitStatus)
@@ -204,28 +206,41 @@ void Process::finished(int exitCode, QProcess::ExitStatus exitStatus)
         printf("Process exited with exit code %d\n", exitCode);
     else
         printf("Process stopped\n");
+    if (!mBeingRestarted) {
+        qDebug() << "quit";
+        qApp->quit();
+    }
 }
 
-void Process::startup(QStringList args)
+void Process::startup()
 {
 #ifdef Q_OS_ANDROID
     QProcessEnvironment pe = interactiveProcessEnvironment();
 #else
     QProcessEnvironment pe = QProcessEnvironment::systemEnvironment();
 #endif
+    QStringList args = mStartupArguments;
+    mBeingRestarted = false;
 
-    foreach (const QString &key, mConfig.env.keys()) {
+    Config actualConfig = mConfig;
+
+    // Parse temporary config files
+    // This needs to be done on every startup because those files are expected to change.
+    parseConfigFileDirectory(&actualConfig, "/var/lib/b2qt/appcontroller.conf.d");
+    parseConfigFileDirectory(&actualConfig, "/tmp/b2qt/appcontroller.conf.d");
+
+    foreach (const QString &key, actualConfig.env.keys()) {
         if (!pe.contains(key)) {
-            qDebug() << key << mConfig.env.value(key);
-            pe.insert(key, mConfig.env.value(key));
+            qDebug() << key << actualConfig.env.value(key);
+            pe.insert(key, actualConfig.env.value(key));
         }
     }
-    if (!mConfig.base.isEmpty())
-        pe.insert(QLatin1String("B2QT_BASE"), mConfig.base);
-    if (!mConfig.platform.isEmpty())
-        pe.insert(QLatin1String("B2QT_PLATFORM"), mConfig.platform);
+    if (!actualConfig.base.isEmpty())
+        pe.insert(QLatin1String("B2QT_BASE"), actualConfig.base);
+    if (!actualConfig.platform.isEmpty())
+        pe.insert(QLatin1String("B2QT_PLATFORM"), actualConfig.platform);
 
-    args.append(mConfig.args);
+    args.append(actualConfig.args);
 
     mProcess->setProcessEnvironment(pe);
     mBinary = args.first();
@@ -236,7 +251,8 @@ void Process::startup(QStringList args)
 
 void Process::start(const QStringList &args)
 {
-    startup(args);
+    mStartupArguments = args;
+    startup();
 }
 
 void Process::stop()
@@ -258,6 +274,14 @@ void Process::stop()
     mProcess->terminate();
     if (!mProcess->waitForFinished())
         mProcess->kill();
+}
+
+void Process::restart()
+{
+    printf("Restarting application\n");
+    mBeingRestarted = true;
+    stop();
+    startup();
 }
 
 void Process::incomingConnection(int i)
@@ -287,6 +311,8 @@ void Process::incomingConnection(int i)
 
     if (command == "stop")
         stop();
+    else if (command == "restart")
+        restart();
     else
         stop();
 }

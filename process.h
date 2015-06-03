@@ -60,6 +60,7 @@ public:
     void setStdoutFd(qintptr stdoutFd);
 public slots:
     void stop();
+    void restart();
 private slots:
     void readyReadStandardError();
     void readyReadStandardOutput();
@@ -68,7 +69,7 @@ private slots:
     void incomingConnection(int);
 private:
     void forwardProcessOutput(qintptr fd, const QByteArray &data);
-    void startup(QStringList);
+    void startup();
     QProcessEnvironment interactiveProcessEnvironment() const;
     QProcess *mProcess;
     int mDebuggee;
@@ -76,6 +77,8 @@ private:
     Config mConfig;
     QString mBinary;
     qintptr mStdoutFd;
+    QStringList mStartupArguments;
+    bool mBeingRestarted;
 };
 
 #endif // PROCESS_H
