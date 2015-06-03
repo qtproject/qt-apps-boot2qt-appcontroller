@@ -433,7 +433,8 @@ int main(int argc, char **argv)
         }
 
         setsid();
-        chdir("/");
+        if (chdir("/") != 0)
+            return -1;
         signal(SIGHUP, SIG_IGN);
 
         // child

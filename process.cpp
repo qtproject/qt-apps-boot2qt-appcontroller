@@ -129,8 +129,9 @@ void Process::forwardProcessOutput(qintptr fd, const QByteArray &data)
                 fd_set inputFdSet;
                 FD_ZERO(&inputFdSet);
                 FD_SET(pipefd[0], &inputFdSet);
-                if (select(qMax(fd, pipefd[0]) + 1, &inputFdSet, &outputFdSet, NULL, NULL) > 0 &&
-                        !FD_ISSET(pipefd[0], &inputFdSet))
+                if (select(qMax(fd, static_cast<qintptr>(pipefd[0])) + 1,
+                           &inputFdSet, &outputFdSet, NULL, NULL) > 0 &&
+                           !FD_ISSET(pipefd[0], &inputFdSet))
                     continue;
                 // else fprintf below will output the appropriate errno
             }
