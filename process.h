@@ -27,23 +27,17 @@
 class QSocketNotifier;
 
 struct Config {
-    enum Flag {
-        PrintDebugMessages = 0x01
-    };
-    Q_DECLARE_FLAGS(Flags, Flag)
-
     enum DebugInterface{
         LocalDebugInterface,
         PublicDebugInterface
     };
 
-    Config() : platform("unknown"), flags(0), debugInterface(LocalDebugInterface) { }
+    Config() : platform("unknown"), debugInterface(LocalDebugInterface) { }
 
     QString base;
     QString platform;
     QMap<QString,QString> env;
     QStringList args;
-    Flags flags;
     DebugInterface debugInterface;
 };
 
@@ -71,7 +65,6 @@ private slots:
 private:
     void forwardProcessOutput(qintptr fd, const QByteArray &data);
     void startup();
-    QProcessEnvironment interactiveProcessEnvironment() const;
     QProcess *mProcess;
     int mDebuggee;
     bool mDebug;

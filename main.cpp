@@ -38,11 +38,7 @@
 #define PID_FILE "/data/user/.appcontroller"
 #define FEATURES "restart perf eglresize qmldebugservices"
 
-#ifdef Q_OS_ANDROID
-    #define B2QT_PREFIX "/data/user/b2qt"
-#else
-    #define B2QT_PREFIX "/usr/bin/b2qt"
-#endif
+#define B2QT_PREFIX "/usr/bin/b2qt"
 
 static int serverSocket = -1;
 
@@ -66,7 +62,6 @@ static void usage()
            "--show-platform                 Show platform information\n"
            "--make-default                  Make this application the default on boot\n"
            "--remove-default                Restore the default application\n"
-           "--print-debug                   Print debug messages to stdout on Android\n"
            "--version                       Print version information\n"
            "--detach                        Start application as usual, then go into background\n"
            "--restart                       Restart the current running application or an\n"
@@ -386,8 +381,6 @@ int main(int argc, char **argv)
                   return 0;
               else
                   return 1;
-        } else if (arg == "--print-debug") {
-            config.flags |= Config::PrintDebugMessages;
         } else if (arg == "--version") {
             printf("Appcontroller version: " GIT_VERSION "\nGit revision: " GIT_HASH "\nFeatures: " FEATURES "\n");
             return 0;
