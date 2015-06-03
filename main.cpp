@@ -21,6 +21,7 @@
 #include "perfprocesshandler.h"
 #include <QCoreApplication>
 #include <QDir>
+#include <QLocalSocket>
 #include <QTcpServer>
 #include <QProcess>
 #include <errno.h>
@@ -73,28 +74,39 @@ static void setupAddressStruct(struct sockaddr_un &address)
     address.sun_path[0] = 0;
 }
 
-static int connectSocket()
+static int connectSocket(const QByteArray &command)
 {
-  int create_socket;
-  struct sockaddr_un address;
+    int fd = 0;
+    struct sockaddr_un address;
 
-  if ((create_socket = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-      perror("Could not create socket");
-      return -1;
-  }
+    if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+        perror("Could not create socket");
+        return -1;
+    }
 
-  if (fcntl(create_socket, F_SETFD, FD_CLOEXEC) == -1) {
-      perror("Unable to set CLOEXEC");
-  }
+    if (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1)
+        perror("Unable to set CLOEXEC");
 
-  setupAddressStruct(address);
+    setupAddressStruct(address);
 
-  if (connect(create_socket, (struct sockaddr *) &address, sizeof (address)) != 0) {
-    perror("Could not connect");
-    return -1;
-  }
-  close(create_socket);
-  return 0;
+    if (connect(fd, (struct sockaddr *) &address, sizeof (address)) != 0) {
+        perror("Could not connect");
+        return -1;
+    }
+
+    QLocalSocket localSocket;
+    if (!localSocket.setSocketDescriptor(fd)) {
+        fprintf(stderr, "Unable to initialize local socket from descriptor.\n");
+        close(fd);
+        return -1;
+    }
+
+    if (localSocket.write(command) != command.size()) {
+        fprintf(stderr, "Could not send command");
+        return -1;
+    }
+    localSocket.waitForBytesWritten();
+    return 0;
 }
 
 static int createServerSocket()
@@ -122,7 +134,7 @@ static int createServerSocket()
               return -1;
           }
 
-          if (connectSocket() != 0) {
+          if (connectSocket("stop") != 0) {
               fprintf(stderr, "Failed to connect to process\n");
           }
 
@@ -143,7 +155,7 @@ static int createServerSocket()
 
 static void stop()
 {
-    connectSocket();
+    connectSocket("stop");
 }
 
 static int openServer(QTcpServer *s, Utils::PortList &range)

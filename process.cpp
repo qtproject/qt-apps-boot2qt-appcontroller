@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <QDebug>
 #include <QFile>
+#include <QLocalSocket>
 #include <QSocketNotifier>
 #include <sys/socket.h>
 #include <signal.h>
@@ -261,8 +262,33 @@ void Process::stop()
 
 void Process::incomingConnection(int i)
 {
-    accept(i, NULL, NULL);
-    stop();
+    int fd = accept(i, NULL, NULL);
+    if (fd < 0 ) {
+        perror("Could not accept connection");
+        stop();
+        return;
+    }
+
+    QLocalSocket localSocket;
+    if (!localSocket.setSocketDescriptor(fd)) {
+        fprintf(stderr, "Could not initialize local socket from descriptor.\n");
+        close(fd);
+        stop();
+        return;
+    }
+
+    if (!localSocket.waitForReadyRead()) {
+        fprintf(stderr, "No command received.\n");
+        stop(); // default
+        return;
+    }
+
+    QByteArray command = localSocket.readAll();
+
+    if (command == "stop")
+        stop();
+    else
+        stop();
 }
 
 void Process::setSocketNotifier(QSocketNotifier *s)
