@@ -294,10 +294,8 @@ int main(int argc, char **argv)
     }
 
     Config config;
-    if (!parseConfigFile(&config, "/etc/appcontroller.conf")) {
+    if (!parseConfigFile(&config, "/etc/appcontroller.conf"))
         fprintf(stderr, "Failed to parse config file.\n");
-        return 1;
-    }
 
     // Parse temporary config files
     parseConfigFileDirectory(&config, "/var/lib/b2qt/appcontroller.conf.d");
