@@ -60,6 +60,7 @@ public:
     void setStdoutFd(qintptr stdoutFd);
 public slots:
     void stop();
+    void stopForRestart();
     void restart();
 private slots:
     void readyReadStandardError();

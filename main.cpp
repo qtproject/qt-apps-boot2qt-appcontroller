@@ -55,6 +55,7 @@ static void usage()
            "--debug-gdb          Start GDB debugging\n"
            "--debug-qml          Start QML debugging\n"
            "--stop               Stop already running application\n"
+           "--stop-for-restart   Stop already running application and prepare to restart it\n"
            "--launch             Start application without stopping already running application\n"
            "--show-platform      Show platform information\n"
            "--make-default       Make this application the default on boot\n"
@@ -62,7 +63,7 @@ static void usage()
            "--print-debug        Print debug messages to stdout on Android\n"
            "--version            Print version information\n"
            "--detach             Start application as usual, then go into background\n"
-           "--restart            Restart the current running application\n"
+           "--restart            Restart the current running application or an application stopped with --stop-for-restart\n"
            "--help, -h, -help    Show this help\n"
           );
 }
@@ -162,6 +163,11 @@ static void stop()
 static void restart()
 {
     connectSocket("restart");
+}
+
+static void stopForRestart()
+{
+    connectSocket("stopForRestart");
 }
 
 static int openServer(QTcpServer *s, Utils::PortList &range)
@@ -374,6 +380,9 @@ int main(int argc, char **argv)
             detach = true;
         } else if (arg == "--restart") {
             restart();
+            return 0;
+        } else if (arg == "--stop-for-restart") {
+            stopForRestart();
             return 0;
         } else if (arg == "--help" || arg == "-help" || arg == "-h") {
             usage();

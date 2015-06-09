@@ -259,7 +259,8 @@ void Process::stop()
 {
     if (mProcess->state() == QProcess::QProcess::NotRunning) {
         printf("No process running\n");
-        qApp->exit();
+        if (!mBeingRestarted)
+            qApp->exit();
         return;
     }
 
@@ -274,6 +275,13 @@ void Process::stop()
     mProcess->terminate();
     if (!mProcess->waitForFinished())
         mProcess->kill();
+}
+
+void Process::stopForRestart()
+{
+    printf("Stopping application for restart\n");
+    mBeingRestarted = true;
+    stop();
 }
 
 void Process::restart()
@@ -313,6 +321,8 @@ void Process::incomingConnection(int i)
         stop();
     else if (command == "restart")
         restart();
+    else if (command == "stopForRestart")
+        stopForRestart();
     else
         stop();
 }
