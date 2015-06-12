@@ -36,6 +36,7 @@
 #include <sys/wait.h>
 
 #define PID_FILE "/data/user/.appcontroller"
+#define FEATURES "perf eglresize"
 
 #ifdef Q_OS_ANDROID
     #define B2QT_PREFIX "/data/user/b2qt"
@@ -374,7 +375,7 @@ int main(int argc, char **argv)
         } else if (arg == "--print-debug") {
             config.flags |= Config::PrintDebugMessages;
         } else if (arg == "--version") {
-            printf("Appcontroller version: " GIT_VERSION "\nGit revision: " GIT_HASH "\n");
+            printf("Appcontroller version: " GIT_VERSION "\nGit revision: " GIT_HASH "\nFeatures: " FEATURES "\n");
             return 0;
         } else if (arg == "--detach") {
             detach = true;
