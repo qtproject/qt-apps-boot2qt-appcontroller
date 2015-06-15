@@ -36,7 +36,7 @@
 #include <sys/wait.h>
 
 #define PID_FILE "/data/user/.appcontroller"
-#define FEATURES "perf eglresize"
+#define FEATURES "restart perf eglresize"
 
 #ifdef Q_OS_ANDROID
     #define B2QT_PREFIX "/data/user/b2qt"
