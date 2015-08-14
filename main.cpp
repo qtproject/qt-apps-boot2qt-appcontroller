@@ -47,13 +47,15 @@ static const char socketPath[] = "#Boot2Qt_appcontroller";
 static void usage()
 {
     printf("appcontroller [--debug-gdb] [--debug-qml] [--qml-debug-services <services>]"
-           " [--port-range <range>] [--stop] [--launch] [--show-platfrom] [--make-default]"
-           " [--remove-default] [--print-debug] [--version] [--detach] [executable] [arguments]\n"
+           " [--profile-perf <params>] [--port-range <range>] [--stop] [--launch] [--show-platfrom]"
+           " [--make-default] [--remove-default] [--print-debug] [--version] [--detach]"
+           " [executable] [arguments]\n"
            "\n"
            "--port-range <range>            Port range to use for debugging connections\n"
            "--debug-gdb                     Start GDB debugging\n"
            "--debug-qml                     Start QML debugging or profiling\n"
            "--qml-debug-services <services> Specify services to use for QML debugging/profiling\n"
+           "--profile-perf <params>         Start perf profiling\n"
            "--stop                          Stop already running application\n"
            "--stop-for-restart              Stop already running application and prepare to\n"
            "                                restart it\n"
@@ -351,10 +353,10 @@ int main(int argc, char **argv)
             qmlDebugServices = args.takeFirst();
         } else if (arg == "--profile-perf") {
             if (args.isEmpty()) {
-                fprintf(stderr, "--profile-perf requires comma-separated list of parameters that "
-                                "get passed to \"perf record\". Arguments \"-o -\" are "
-                                "automatically appended to capture the output as stream. "
-                                "Escape commas by doubling them.");
+                fprintf(stderr, "--profile-perf requires comma-separated list of parameters that\n"
+                                "get passed to \"perf record\". Arguments \"-o -\" are\n"
+                                "automatically appended to capture the output as stream.\n"
+                                "Escape commas by doubling them.\n");
                 return 1;
             }
             perfParams = extractPerfParams(args.takeFirst());
