@@ -36,7 +36,7 @@
 #include <sys/wait.h>
 
 #define PID_FILE "/data/user/.appcontroller"
-#define FEATURES "restart perf eglresize"
+#define FEATURES "restart perf eglresize qmldebugservices"
 
 #ifdef Q_OS_ANDROID
     #define B2QT_PREFIX "/data/user/b2qt"
@@ -50,22 +50,28 @@ static const char socketPath[] = "#Boot2Qt_appcontroller";
 
 static void usage()
 {
-    printf("appcontroller [--debug-gdb] [--debug-qml] [--port-range <range>] [--stop] [--launch] [--show-platfrom] [--make-default] [--remove-default] [--print-debug] [--version] [--detach] [executable] [arguments]\n"
+    printf("appcontroller [--debug-gdb] [--debug-qml] [--qml-debug-services <services>]"
+           " [--port-range <range>] [--stop] [--launch] [--show-platfrom] [--make-default]"
+           " [--remove-default] [--print-debug] [--version] [--detach] [executable] [arguments]\n"
            "\n"
-           "--port-range <range> Port range to use for debugging connections\n"
-           "--debug-gdb          Start GDB debugging\n"
-           "--debug-qml          Start QML debugging\n"
-           "--stop               Stop already running application\n"
-           "--stop-for-restart   Stop already running application and prepare to restart it\n"
-           "--launch             Start application without stopping already running application\n"
-           "--show-platform      Show platform information\n"
-           "--make-default       Make this application the default on boot\n"
-           "--remove-default     Restore the default application\n"
-           "--print-debug        Print debug messages to stdout on Android\n"
-           "--version            Print version information\n"
-           "--detach             Start application as usual, then go into background\n"
-           "--restart            Restart the current running application or an application stopped with --stop-for-restart\n"
-           "--help, -h, -help    Show this help\n"
+           "--port-range <range>            Port range to use for debugging connections\n"
+           "--debug-gdb                     Start GDB debugging\n"
+           "--debug-qml                     Start QML debugging or profiling\n"
+           "--qml-debug-services <services> Specify services to use for QML debugging/profiling\n"
+           "--stop                          Stop already running application\n"
+           "--stop-for-restart              Stop already running application and prepare to\n"
+           "                                restart it\n"
+           "--launch                        Start application without stopping already running\n"
+           "                                application\n"
+           "--show-platform                 Show platform information\n"
+           "--make-default                  Make this application the default on boot\n"
+           "--remove-default                Restore the default application\n"
+           "--print-debug                   Print debug messages to stdout on Android\n"
+           "--version                       Print version information\n"
+           "--detach                        Start application as usual, then go into background\n"
+           "--restart                       Restart the current running application or an\n"
+           "                                application stopped with --stop-for-restart\n"
+           "--help, -h, -help               Show this help\n"
           );
 }
 
@@ -307,6 +313,7 @@ int main(int argc, char **argv)
     quint16 gdbDebugPort = 0;
     bool useGDB = false;
     bool useQML = false;
+    QString qmlDebugServices;
     QStringList perfParams;
     bool fireAndForget = false;
     bool detach = false;
@@ -340,6 +347,13 @@ int main(int argc, char **argv)
             setsid();
         } else if (arg == "--debug-qml") {
             useQML = true;
+        } else if (arg == "--qml-debug-services") {
+            if (args.isEmpty()) {
+                fprintf(stderr, "--qml-debug-services requires a list of comma-separated service "
+                                "names.\n");
+                return 1;
+            }
+            qmlDebugServices = args.takeFirst();
         } else if (arg == "--profile-perf") {
             if (args.isEmpty()) {
                 fprintf(stderr, "--profile-perf requires comma-separated list of parameters that "
@@ -423,7 +437,9 @@ int main(int argc, char **argv)
             fprintf(stderr, "Could not find an unused port in range\n");
             return 1;
         }
-        defaultArgs.push_front("-qmljsdebugger=port:" + QString::number(port) + ",block");
+        defaultArgs.push_front("-qmljsdebugger=port:" + QString::number(port) + ",block" +
+                               (qmlDebugServices.isEmpty() ?
+                                    "" : (",services:" + qmlDebugServices)));
         printf("QML Debugger: Going to wait for connection on port %d...\n", port);
     }
 
