@@ -501,7 +501,7 @@ int main(int argc, char **argv)
         QStringList allArgs;
         allArgs << QLatin1String("perf") << QLatin1String("record")
                 << perfParams << QLatin1String("-o") << QLatin1String("-")
-                << QLatin1String("--") << defaultArgs.join(QLatin1Char(' '));
+                << QLatin1String("--") << defaultArgs;
 
         PerfProcessHandler *server = new PerfProcessHandler(&process, allArgs);
         int port = openServer(server->server(), range);
