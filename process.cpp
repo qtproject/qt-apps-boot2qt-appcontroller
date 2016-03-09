@@ -261,8 +261,6 @@ void Process::stop()
         if (kill(mDebuggee, SIGKILL) != 0)
             perror("Could not kill debugee");
     }
-    if (kill(-getpid(), SIGTERM) != 0)
-        perror("Could not kill process group");
 
     mProcess->terminate();
     if (!mProcess->waitForFinished())
