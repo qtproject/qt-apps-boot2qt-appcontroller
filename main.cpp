@@ -245,14 +245,32 @@ bool parseConfigFileDirectory(Config *config, const QString &dirName)
 
 static bool removeDefault()
 {
-    if (QFile::exists(B2QT_PREFIX)) {
+    QFileInfo fi(B2QT_PREFIX);
+
+    if (fi.isSymLink()) {
         if (!QFile::remove(B2QT_PREFIX)) {
             fprintf(stderr, "Could not remove default application.\n");
             return false;
         }
         sync();
+        return true;
     }
-    return true;
+
+    if (fi.isDir()) {
+        fprintf(stderr, "Could not remove default application because '" B2QT_PREFIX "' is a directory. It should be a symlink.\n");
+        return false;
+    }
+
+    if (fi.isFile()) {
+        fprintf(stderr, "Could not remove default application because '" B2QT_PREFIX "' is a file. It should be a symlink.\n");
+        return false;
+    }
+
+    if (!fi.exists()) {
+        return true;
+    }
+
+    return false;
 }
 
 static bool makeDefault(const QString &filepath)
