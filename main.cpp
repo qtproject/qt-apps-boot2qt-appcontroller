@@ -39,7 +39,7 @@
 #include <sys/wait.h>
 
 #define PID_FILE "/data/user/.appcontroller"
-#define FEATURES "restart perf eglresize qmldebugservices"
+#define FEATURES "restart perf eglresize qmldebugservices explicitdebugports"
 
 #define B2QT_PREFIX "/usr/bin/b2qt"
 
@@ -49,14 +49,17 @@ static const char socketPath[] = "#Boot2Qt_appcontroller";
 
 static void usage()
 {
-    printf("appcontroller [--debug-gdb] [--debug-qml] [--qml-debug-services <services>]"
+    printf("appcontroller [--debug-gdb]  [--debug-gdb-port <port>]"
+           " [--debug-qml] [--debug-qml-port <port>] [--qml-debug-services <services>]"
            " [--profile-perf <params>] [--port-range <range>] [--stop] [--launch] [--show-platfrom]"
            " [--make-default] [--remove-default] [--print-debug] [--version] [--detach]"
            " [executable] [arguments]\n"
            "\n"
            "--port-range <range>            Port range to use for debugging connections\n"
            "--debug-gdb                     Start GDB debugging\n"
+           "--debug-gdb-port <port>         Port to be used for GDB debugging\n"
            "--debug-qml                     Start QML debugging or profiling\n"
+           "--debug-qml-port <port>         Port to be used for QML debugging\n"
            "--qml-debug-services <services> Specify services to use for QML debugging/profiling\n"
            "--profile-perf <params>         Start perf profiling\n"
            "--stop                          Stop already running application\n"
@@ -329,6 +332,7 @@ int main(int argc, char **argv)
 
     QStringList defaultArgs;
     quint16 gdbDebugPort = 0;
+    quint16 qmlDebugPort = 0;
     bool useGDB = false;
     bool useQML = false;
     QString qmlDebugServices;
@@ -363,8 +367,28 @@ int main(int argc, char **argv)
             useGDB = true;
             setpgid(0,0); // must be called before setsid()
             setsid();
+        } else if (arg == "--debug-gdb-port") {
+            if (args.isEmpty()) {
+                fprintf(stderr, "--debug-gdb-port requires a port number\n");
+                return 1;
+            }
+            gdbDebugPort = args.takeFirst().toUInt();
+            if (gdbDebugPort < 1) {
+                fprintf(stderr, "--debug-gdb-port has invalid port number\n");
+                return 1;
+            }
         } else if (arg == "--debug-qml") {
             useQML = true;
+        } else if (arg == "--debug-qml-port") {
+            if (args.isEmpty()) {
+                fprintf(stderr, "--debug-qml-port requires a port number\n");
+                return 1;
+            }
+            qmlDebugPort = args.takeFirst().toUInt();
+            if (qmlDebugPort < 1) {
+                fprintf(stderr, "--debug-qml-port has invalid port number\n");
+                return 1;
+            }
         } else if (arg == "--qml-debug-services") {
             if (args.isEmpty()) {
                 fprintf(stderr, "--qml-debug-services requires a list of comma-separated service "
@@ -429,8 +453,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if ((useGDB || useQML) && !range.hasMore()) {
-        fprintf(stderr, "--port-range is mandatory\n");
+    if (useGDB && !(gdbDebugPort || range.hasMore())) {
+        fprintf(stderr, "--debug-gdb requires --port-range or --debug-gdb-port\n");
+        return 1;
+    }
+
+    if (useQML && !(qmlDebugPort || range.hasMore())) {
+        fprintf(stderr, "--debug-qml requires --port-range or --debug-qml-port\n");
         return 1;
     }
 
@@ -439,7 +468,10 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (useGDB) {
+    if (gdbDebugPort && !useGDB)
+        gdbDebugPort = 0;
+
+    if (useGDB && !gdbDebugPort) {
         int port = findFirstFreePort(range);
         if (port < 0) {
             fprintf(stderr, "Could not find an unused port in range\n");
@@ -448,15 +480,18 @@ int main(int argc, char **argv)
         gdbDebugPort = port;
     }
     if (useQML) {
-        int port = findFirstFreePort(range);
-        if (port < 0) {
-            fprintf(stderr, "Could not find an unused port in range\n");
-            return 1;
+        if (!qmlDebugPort) {
+            int port = findFirstFreePort(range);
+            if (port < 0) {
+                fprintf(stderr, "Could not find an unused port in range\n");
+                return 1;
+            }
+            qmlDebugPort = port;
         }
-        defaultArgs.push_front("-qmljsdebugger=port:" + QString::number(port) + ",block" +
+        defaultArgs.push_front("-qmljsdebugger=port:" + QString::number(qmlDebugPort) + ",block" +
                                (qmlDebugServices.isEmpty() ?
                                     "" : (",services:" + qmlDebugServices)));
-        printf("QML Debugger: Going to wait for connection on port %d...\n", port);
+        printf("QML Debugger: Going to wait for connection on port %d...\n", qmlDebugPort);
     }
 
     defaultArgs.push_front(args.takeFirst());
