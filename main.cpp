@@ -435,7 +435,7 @@ int main(int argc, char **argv)
     }
 
     if (detach && (useGDB || useQML)) {
-        fprintf(stderr, "Detached debugging not possible. --detach and one of --useGDB, --useQML must not be used together.\n");
+        fprintf(stderr, "Detached debugging not possible. --detach and one of --debug-gdb, --debug-qml must not be used together.\n");
         return 1;
     }
 
