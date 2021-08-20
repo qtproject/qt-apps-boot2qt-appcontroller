@@ -452,7 +452,7 @@ int main(int argc, char **argv)
               else
                   return 1;
         } else if (arg == "--version") {
-            printf("Appcontroller version: " GIT_VERSION "\nGit revision: " GIT_HASH "\nFeatures: " FEATURES "\n");
+            printf("Appcontroller version: " APPCONTROLLER_VERSION "\nFeatures: " FEATURES "\n");
             return 0;
         } else if (arg == "--detach") {
             detach = true;
