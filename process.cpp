@@ -100,7 +100,7 @@ Process::Process()
     connect(mProcess, &QProcess::readyReadStandardError, this, &Process::readyReadStandardError);
     connect(mProcess, &QProcess::readyReadStandardOutput, this, &Process::readyReadStandardOutput);
     connect(mProcess, (void (QProcess::*)(int, QProcess::ExitStatus))&QProcess::finished, this, &Process::finished);
-    connect(mProcess, (void (QProcess::*)(QProcess::ProcessError))&QProcess::error, this, &Process::error);
+    connect(mProcess, (void (QProcess::*)(QProcess::ProcessError))&QProcess::errorOccurred, this, &Process::errorOccurred);
 
     if (pipe2(pipefd, O_CLOEXEC) != 0)
         qWarning("Could not create pipe");
@@ -172,7 +172,7 @@ void Process::setDebug()
     mDebug = true;
 }
 
-void Process::error(QProcess::ProcessError error)
+void Process::errorOccurred(QProcess::ProcessError error)
 {
     switch (error) {
     case QProcess::FailedToStart:

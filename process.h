@@ -64,7 +64,7 @@ private slots:
     void readyReadStandardError();
     void readyReadStandardOutput();
     void finished(int, QProcess::ExitStatus);
-    void error(QProcess::ProcessError);
+    void errorOccurred(QProcess::ProcessError);
     void incomingConnection(int);
 private:
     void forwardProcessOutput(qintptr fd, const QByteArray &data);
