@@ -207,7 +207,9 @@ bool readEnvs(Config *config)
         const auto line = f.readLine().simplified();
         if (!line.startsWith("#")) {
             const auto index = line.indexOf('=');
-            config->env[line.left(index)] = line.mid(index + 1);
+            const auto key = line.left(index);
+            if (!key.isEmpty())
+                config->env[key] = line.mid(index + 1);
         }
     }
     f.close();
