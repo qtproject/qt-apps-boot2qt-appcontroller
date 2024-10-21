@@ -42,7 +42,6 @@ struct Config {
     QMap<QString,QString> env;
     QStringList args;
     DebugInterface debugInterface;
-    QString envFile;
 };
 
 class Process : public QObject

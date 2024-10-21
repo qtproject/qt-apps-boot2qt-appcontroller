@@ -195,11 +195,11 @@ static int findFirstFreePort(Utils::PortList &range)
     return openServer(&s, range);
 }
 
-bool readEnvs(Config *config)
+bool readEnvs(Config *config, const QString &envFile)
 {
-    QFile f(config->envFile);
+    QFile f(envFile);
     if (!f.open(QFile::ReadOnly)) {
-        fprintf(stderr, "Could not read environment file: %s\n", qPrintable(config->envFile));
+        fprintf(stderr, "Could not read environment file: %s\n", qPrintable(envFile));
         return false;
     }
 
@@ -249,7 +249,9 @@ bool parseConfigFile(Config *config, const QString &fileName)
               else
                   qWarning() << "Unkonwn value for debuginterface:" << value;
         } else if (line.startsWith("environmentFile=")) {
-            config->envFile = line.mid(16).simplified();
+            QString envFile = line.mid(16).simplified();
+            if (!envFile.isEmpty())
+                readEnvs(config, envFile);
         }
     }
     f.close();
@@ -372,8 +374,6 @@ int main(int argc, char **argv)
     Config config;
     if (!parseConfigFile(&config, "/etc/appcontroller.conf"))
         fprintf(stderr, "Failed to parse config file.\n");
-    if (!config.envFile.isEmpty())
-        readEnvs(&config);
 
     while (!args.isEmpty()) {
         const QString arg(args.takeFirst());
