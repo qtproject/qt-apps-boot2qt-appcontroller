@@ -255,7 +255,12 @@ bool parseConfigFile(Config *config, const QString &fileName)
             QString envFile = line.mid(16).simplified();
             if (!envFile.isEmpty())
                 readEnvs(config, envFile);
+        } else if (line.startsWith("user=")) {
+            config->user = line.mid(5).simplified();
+        } else if (line.startsWith("group=")) {
+            config->group = line.mid(6).simplified();
         }
+
     }
     f.close();
     return true;

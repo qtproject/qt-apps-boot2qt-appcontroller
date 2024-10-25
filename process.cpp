@@ -31,7 +31,10 @@
 #include <fcntl.h>
 #include <QFileInfo>
 #include <QTcpSocket>
+#include <QDir>
 #include <errno.h>
+#include <pwd.h>
+#include <grp.h>
 
 bool parseConfigFileDirectory(Config *config, const QString &dirName);
 static int pipefd[2];
@@ -223,6 +226,62 @@ void Process::startup()
     // This needs to be done on every startup because those files are expected to change.
     parseConfigFileDirectory(&actualConfig, "/var/lib/b2qt/appcontroller.conf.d");
     parseConfigFileDirectory(&actualConfig, "/tmp/b2qt/appcontroller.conf.d");
+
+    if (!actualConfig.user.isEmpty()) {
+        mProcess->setChildProcessModifier([this, actualConfig]() {
+            if (getuid() != 0) {
+                fprintf(stderr, "Not running as root, cannot change user\n");
+                return;
+            }
+
+            struct passwd *p;
+            if ((p = getpwnam(actualConfig.user.toLatin1().constData())) == nullptr) {
+                fprintf(stderr, "Failed to get user\n");
+                return;
+            }
+
+            if (setgroups(0, nullptr) == -1)
+               fprintf(stderr, "Failed to clear groups\n");
+
+            gid_t gid = -1;
+            QString groupName;
+
+            if (!actualConfig.group.isEmpty()) {
+                struct group *g;
+                if ((g = getgrnam(actualConfig.group.toLatin1().constData())) == nullptr) {
+                    fprintf(stderr, "Failed to get group\n");
+                    return;
+                }
+                gid = g->gr_gid;
+                groupName = g->gr_name;
+            } else {
+                struct group *g;
+                if ((g = getgrgid(p->pw_gid)) == nullptr) {
+                    fprintf(stderr, "Failed to get group\n");
+                    return;
+                }
+                gid = g->gr_gid;
+                groupName = QString::fromLocal8Bit(g->gr_name);
+            }
+
+            if (initgroups(actualConfig.user.toLatin1().constData(), gid) == -1)
+                fprintf(stderr, "Failed to set groups\n");
+
+            if (setgid(gid) == -1)
+                fprintf(stderr, "Failed to change group\n");
+
+            qDebug() << "Changed group to" << groupName << "gid" << gid;
+
+            if (setuid(p->pw_uid) == -1)
+                printf("Failed to change user\n");
+
+            qDebug() << "Changed user to" << p->pw_name << "uid" << p->pw_uid;
+
+            // Useful for debugging
+            // ::system("id");
+            // ::system("env");
+        });
+    }
 
     foreach (const QString &key, actualConfig.env.keys()) {
         if (!pe.contains(key)) {
