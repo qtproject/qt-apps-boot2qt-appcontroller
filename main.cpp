@@ -208,8 +208,11 @@ bool readEnvs(Config *config, const QString &envFile)
         if (!line.startsWith("#")) {
             const auto index = line.indexOf('=');
             const auto key = line.left(index);
+            auto value = line.mid(index + 1);
+            if (value.startsWith('"') && value.endsWith('"'))
+                value = value.mid(1, value.length() - 2);
             if (!key.isEmpty())
-                config->env[key] = line.mid(index + 1);
+                config->env[key] = value;
         }
     }
     f.close();
