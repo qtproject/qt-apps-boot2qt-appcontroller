@@ -297,9 +297,18 @@ void Process::startup()
     args.append(actualConfig.args);
 
     mProcess->setProcessEnvironment(pe);
-    mBinary = args.first();
-    args.removeFirst();
+    if (actualConfig.wrapperCmd.isEmpty()) {
+        mBinary = args.first();
+        args.removeFirst();
+    } else {
+        QStringList wrapper = actualConfig.wrapperCmd.split(" ");
+        mBinary = wrapper.first();
+        wrapper.removeFirst();
+        args = wrapper + args;
+    }
+
     qDebug() << mBinary << args;
+
     mProcess->start(mBinary, args);
 }
 

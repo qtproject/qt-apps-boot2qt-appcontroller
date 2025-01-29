@@ -44,6 +44,7 @@ struct Config {
     DebugInterface debugInterface;
     QString user;
     QString group;
+    QString wrapperCmd;
 };
 
 class Process : public QObject

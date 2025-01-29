@@ -259,6 +259,8 @@ bool parseConfigFile(Config *config, const QString &fileName)
             config->user = line.mid(5).simplified();
         } else if (line.startsWith("group=")) {
             config->group = line.mid(6).simplified();
+        } else if (line.startsWith("wrapperCmd=")) {
+            config->wrapperCmd = line.mid(11).simplified();
         }
 
     }
