@@ -40,6 +40,7 @@ struct Config {
     QString base;
     QString platform;
     QMap<QString,QString> env;
+    QStringList clearEnv;
     QStringList args;
     DebugInterface debugInterface;
     QString user;

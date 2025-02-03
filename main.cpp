@@ -261,6 +261,8 @@ bool parseConfigFile(Config *config, const QString &fileName)
             config->group = line.mid(6).simplified();
         } else if (line.startsWith("wrapperCmd=")) {
             config->wrapperCmd = line.mid(11).simplified();
+        } else if (line.startsWith("clearEnv=")) {
+            config->clearEnv.append(line.mid(9).simplified());
         }
 
     }

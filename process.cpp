@@ -283,6 +283,10 @@ void Process::startup()
         });
     }
 
+    foreach (const QString &key, actualConfig.clearEnv) {
+        pe.remove(key);
+    }
+
     foreach (const QString &key, actualConfig.env.keys()) {
         if (!pe.contains(key)) {
             qDebug() << key << actualConfig.env.value(key);
