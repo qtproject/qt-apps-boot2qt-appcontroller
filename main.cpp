@@ -52,7 +52,7 @@ static void usage()
     printf("appcontroller [--debug-gdb]  [--debug-gdb-port <port>]"
            " [--debug-qml] [--debug-qml-port <port>] [--qml-debug-services <services>]"
            " [--profile-perf <params>] [--port-range <range>] [--stop] [--launch] [--show-platfrom]"
-           " [--make-default] [--remove-default] [--print-debug] [--version] [--detach]"
+           " [--make-default] [--no-wrapper] [--remove-default] [--print-debug] [--version] [--detach]"
            " [executable] [arguments]\n"
            "\n"
            "--port-range <range>            Port range to use for debugging connections\n"
@@ -69,6 +69,7 @@ static void usage()
            "                                application\n"
            "--show-platform                 Show platform information\n"
            "--make-default                  Make this application the default on boot\n"
+           "--no-wrapper                    Start the application without the configured wrapper command\n"
            "--remove-default                Restore the default application\n"
            "--version                       Print version information\n"
            "--detach                        Start application as usual, then go into background\n"
@@ -460,6 +461,8 @@ int main(int argc, char **argv)
               if (!makeDefault(args.takeFirst()))
                   return 1;
               return 0;
+        } else if (arg == "--no-wrapper") {
+            config.wrapperCmd.clear();
         } else if (arg == "--remove-default") {
               if (removeDefault())
                   return 0;
