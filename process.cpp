@@ -99,9 +99,7 @@ Process::Process()
     , mStdoutFd(1)
     , mBeingRestarted(false)
 {
-    mProcess->setProcessChannelMode(QProcess::SeparateChannels);
-    connect(mProcess, &QProcess::readyReadStandardError, this, &Process::readyReadStandardError);
-    connect(mProcess, &QProcess::readyReadStandardOutput, this, &Process::readyReadStandardOutput);
+    mProcess->setProcessChannelMode(QProcess::ForwardedChannels);
     connect(mProcess, (void (QProcess::*)(int, QProcess::ExitStatus))&QProcess::finished, this, &Process::finished);
     connect(mProcess, (void (QProcess::*)(QProcess::ProcessError))&QProcess::errorOccurred, this, &Process::errorOccurred);
 
@@ -173,6 +171,12 @@ void Process::readyReadStandardError()
 void Process::setDebug()
 {
     mDebug = true;
+
+    // Only do the manual forward routine, if really necessary. Otherwise we break applications that
+    // require a pristine stderr for journald logging.
+    mProcess->setProcessChannelMode(QProcess::SeparateChannels);
+    connect(mProcess, &QProcess::readyReadStandardError, this, &Process::readyReadStandardError);
+    connect(mProcess, &QProcess::readyReadStandardOutput, this, &Process::readyReadStandardOutput);
 }
 
 void Process::errorOccurred(QProcess::ProcessError error)
